@@ -1,0 +1,167 @@
+[
+  {
+    "id": "T001",
+    "ticket_text": "Checkout API is returning intermittent 500s for about 5% of requests after peak traffic starts at 10:00 AM. Error logs mention connection timeouts and our DB dashboard shows active connections pinned near the max.",
+    "category": "easy",
+    "gold_root_cause": "db_connection_pool_exhaustion",
+    "gold_runbook_id": "RB-DB-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Classic DB pool saturation pattern with high error rate and near-capacity pool metrics."
+  },
+  {
+    "id": "T002",
+    "ticket_text": "Redis cache hit rate dropped from 96% to 72% over the last hour, and application latency rose sharply while memory usage on the cache node hovered above 90%.",
+    "category": "easy",
+    "gold_root_cause": "memory_cache_overgrowth",
+    "gold_runbook_id": "RB-MEMORY-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Cache pressure and eviction trend; likely memory saturation."
+  },
+  {
+    "id": "T003",
+    "ticket_text": "The public site started serving 502 and 503s during the morning traffic spike, and the ingress dashboard shows queue depth and max connections near the configured limits.",
+    "category": "easy",
+    "gold_root_cause": "network_ingress_queue_exhaustion",
+    "gold_runbook_id": "RB-NETWORK-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Ingress saturation under load; connection queue exhaustion is likely."
+  },
+  {
+    "id": "T004",
+    "ticket_text": "The new deployment is stuck because pods never become ready, and readiness probes are failing with repeated connection refused and timeout errors after startup.",
+    "category": "easy",
+    "gold_root_cause": "deploy_healthcheck_misconfiguration",
+    "gold_runbook_id": "RB-DEPLOY-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Probe configuration likely mismatched to application startup time."
+  },
+  {
+    "id": "T005",
+    "ticket_text": "Users started getting 401 responses across the dashboard immediately after a JWT key rotation; some sessions are failing while others still authenticate successfully.",
+    "category": "easy",
+    "gold_root_cause": "auth_signing_key_mismatch",
+    "gold_runbook_id": "RB-AUTH-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Rotation mismatch across nodes is a strong candidate."
+  },
+  {
+    "id": "T006",
+    "ticket_text": "The order service began to timeout under moderate load. The app logs show `connection pool timeout` errors, and the DB dashboard shows the pool nearly full while query latency remains stable but connection wait time increases.",
+    "category": "multi_step",
+    "gold_root_cause": "db_connection_pool_exhaustion",
+    "gold_runbook_id": "RB-DB-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Multi-step evidence path: logs + pool metrics + runbook."
+  },
+  {
+    "id": "T007",
+    "ticket_text": "The API is much slower before noon, and Redis memory grows steadily until the cache starts evicting keys. Customer-facing reads fall back to database calls and TTL expiry increases unexpectedly.",
+    "category": "multi_step",
+    "gold_root_cause": "memory_cache_overgrowth",
+    "gold_runbook_id": "RB-MEMORY-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Cross-check cache hit rate, memory, and eviction metrics before resolving."
+  },
+  {
+    "id": "T008",
+    "ticket_text": "After the latest release, the platform is failing health checks and the rollout is sleeping in a partially deployed state. Pods keep restarting while the readiness endpoint never returns success.",
+    "category": "multi_step",
+    "gold_root_cause": "deploy_healthcheck_misconfiguration",
+    "gold_runbook_id": "RB-DEPLOY-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Deploy issue with startup timing and readiness drift."
+  },
+  {
+    "id": "T009",
+    "ticket_text": "The analytics collector started failing to write events and the app logs now show disk full errors from the storage volume. Container logs stopped rotating and the partition sits above 95% utilization.",
+    "category": "multi_step",
+    "gold_root_cause": "disk_log_rotation_gap",
+    "gold_runbook_id": "RB-DISK-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Filesystem exhaustion caused by unbounded log growth."
+  },
+  {
+    "id": "T010",
+    "ticket_text": "Users across the EU region report sudden 401s after an auth rotation, but a subset of requests still succeeds depending on which token issuer node handled them. The issue started immediately after the key update.",
+    "category": "multi_step",
+    "gold_root_cause": "auth_signing_key_mismatch",
+    "gold_runbook_id": "RB-AUTH-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Regional rollout mismatch and key ID inconsistency."
+  },
+  {
+    "id": "T011",
+    "ticket_text": "The regional load balancer is rejecting new TCP connections during the nightly batch and the ingress queue remains at 85% of capacity while backend error latency climbs. The service is otherwise healthy and CPU is not elevated.",
+    "category": "tool_heavy",
+    "gold_root_cause": "network_ingress_queue_exhaustion",
+    "gold_runbook_id": "RB-NETWORK-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Requires log, metric, and runbook cross-checking to confirm network saturation."
+  },
+  {
+    "id": "T012",
+    "ticket_text": "The logs show repeated write failures and the data collector started failing to write temporary files. Both the app volume and log directory are reported above 93% usage and the node is still accepting traffic while failing to persist events.",
+    "category": "tool_heavy",
+    "gold_root_cause": "disk_log_rotation_gap",
+    "gold_runbook_id": "RB-DISK-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Multi-signal disk issue: no space errors plus log retention problems."
+  },
+  {
+    "id": "T013",
+    "ticket_text": "A canary rollout is stuck because the app container does not report ready, even though the process started successfully. Our probes time out, and the deployment is never progressing past the first replica.",
+    "category": "tool_heavy",
+    "gold_root_cause": "deploy_healthcheck_misconfiguration",
+    "gold_runbook_id": "RB-DEPLOY-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Started as a rollout problem; root cause is probe timing and startup readiness." 
+  },
+  {
+    "id": "T014",
+    "ticket_text": "Several users report odd login failures after the latest release, but the issue is inconsistent across browsers and regions and there is no obvious correlation to token expiry or key rotation events.",
+    "category": "ambiguous",
+    "gold_root_cause": null,
+    "gold_runbook_id": "RB-AUTH-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "escalate",
+    "notes": "Ambiguous auth incident; do not guess based on weak evidence."
+  },
+  {
+    "id": "T015",
+    "ticket_text": "The storefront is sporadically slow and some users see timeouts, but the error pattern is inconsistent and there is no single clear spike in queue depth or database capacity that matches the complaints.",
+    "category": "ambiguous",
+    "gold_root_cause": null,
+    "gold_runbook_id": "RB-NETWORK-001.md",
+    "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
+    "min_confidence_evidence_sources": 2,
+    "expected_behavior": "escalate",
+    "notes": "This ticket should trigger escalation because the signal is too noisy to support a confident diagnosis."
+  }
+]
