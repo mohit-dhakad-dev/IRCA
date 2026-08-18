@@ -1,9 +1,11 @@
 import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from agent.single_pass import run_single_pass
 from agent.state import TaskState
+from tools.fake_data import get_ticket
 
 
 class TicketCreateRequest(BaseModel):
@@ -31,3 +33,11 @@ def create_ticket(payload: TicketCreateRequest) -> TaskState:
     )
 
     return task_state
+
+
+@app.post("/tickets/{ticket_id}/diagnose")
+def diagnose_ticket(ticket_id: str) -> dict:
+    """Run the single-pass (baseline) diagnosis for a known synthetic ticket."""
+    if get_ticket(ticket_id) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticket id '{ticket_id}'.")
+    return run_single_pass(ticket_id)

@@ -13,7 +13,8 @@ using RAG over runbooks and a memory of past incidents.
 - Only touch files relevant to the current task — do not refactor unrelated code.
 - No real external APIs except the LLM provider. Logs/metrics/tickets are synthetic 
   (see tools/fake_data.py once created).
-- Use Groq API (llama-3.3-70b-versatile) as the LLM provider, key in .env as GROQ_API_KEY.
+- Use Groq API (openai/gpt-oss-120b) as the LLM provider, key in .env as GROQ_API_KEY.
+  (llama-3.3-70b-versatile was the original pin; it has been retired on Groq and now 404s.)
 
 ## Delegation policy
 This project uses a cost-optimized subagent topology (see .claude/agents/). The main

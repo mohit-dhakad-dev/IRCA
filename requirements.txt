@@ -3,4 +3,5 @@ uvicorn
 pydantic
 python-dotenv
 pytest
-httpx2
+groq
+httpx

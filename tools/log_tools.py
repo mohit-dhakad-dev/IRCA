@@ -277,6 +277,10 @@ def query_metrics(ticket_id: str, service: str, metric: str, window: str) -> dic
         }
 
     metric = metric.strip()
+    # unreachable via the live tool-calling path: agent/tool_schemas.py constrains
+    # `metric` to an enum of the known METRIC_PROFILES names, so the model can never
+    # request one outside it. This branch is exercised only by direct unit tests and
+    # stays here as a guard for programmatic (non-LLM) callers.
     if metric not in METRIC_PROFILES:
         available = sorted(METRIC_PROFILES)
         return {
