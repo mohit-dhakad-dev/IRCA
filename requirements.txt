@@ -5,3 +5,5 @@ python-dotenv
 pytest
 groq
 httpx
+chromadb
+sentence-transformers

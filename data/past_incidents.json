@@ -1,0 +1,50 @@
+[
+  {
+    "incident_id": "INC-001",
+    "symptom_summary": "The billing-api began returning 401s for roughly a third of requests within minutes of the identity team pushing a new signing key. Some pods kept authenticating fine while others rejected the same tokens, and restarting the failing pods temporarily cleared the errors.",
+    "resolved_root_cause": "auth_signing_key_mismatch",
+    "resolution": "Re-enabled the previous signing key alongside the new one for a 24-hour overlap window, pushed the updated JWKS to every auth node so they all published the same key ID, and confirmed failure rates dropped once all nodes matched."
+  },
+  {
+    "incident_id": "INC-002",
+    "symptom_summary": "The checkout-service started throwing ConnectionPoolTimeoutException during the Friday flash sale, with the pool metric sitting at its configured ceiling for nearly 40 minutes while query latency itself stayed flat.",
+    "resolved_root_cause": "db_connection_pool_exhaustion",
+    "resolution": "Raised the checkout-service pool size to a higher limit that still left a 20% safety margin below the database's connection ceiling, reloaded the connection manager, and watched active connections stay well below the new high-water mark for an hour afterward."
+  },
+  {
+    "incident_id": "INC-003",
+    "symptom_summary": "A canary release of the notifications worker sat in CrashLoopBackOff for over ten minutes; the container logs showed a clean process start but the readiness probe kept returning connection refused because the process needed longer to warm its cache than the probe allowed.",
+    "resolved_root_cause": "deploy_healthcheck_misconfiguration",
+    "resolution": "Increased the readiness initialDelaySeconds to account for cache warm-up, capped timeoutSeconds within the 1-5 second range, and re-ran the rollout as a single-instance canary before letting the rest of the fleet follow."
+  },
+  {
+    "incident_id": "INC-004",
+    "symptom_summary": "The metrics-ingest volume filled up overnight after a debug flag was left on, and the service began logging inode allocation failures while unable to create new temp files for incoming batches.",
+    "resolved_root_cause": "disk_log_rotation_gap",
+    "resolution": "Cleared stale debug logs immediately, capped each log file at 100 MB with a 5-file retention policy, turned the debug flag back off, and confirmed disk usage settled back under 80% after the cleanup."
+  },
+  {
+    "incident_id": "INC-005",
+    "symptom_summary": "The recommendation service's cache node reported OOM command not allowed and evicted_keys climbed sharply after a config change increased object TTLs, coinciding with response times doubling for the affected endpoints.",
+    "resolved_root_cause": "memory_cache_overgrowth",
+    "resolution": "Rolled back the TTL change, lowered maxmemory to keep used_memory_rss under 75% of node RAM, switched the eviction policy to allkeys-lru, and tracked eviction counts and hit rate for the following hour to confirm stability."
+  },
+  {
+    "incident_id": "INC-006",
+    "symptom_summary": "During a marketing-driven traffic surge the front-door load balancer began rejecting new TCP connections, with the SYN backlog metric climbing toward its configured maximum while backend compute stayed idle and unaffected.",
+    "resolved_root_cause": "network_ingress_queue_exhaustion",
+    "resolution": "Scaled out two additional ingress replicas ahead of the remaining surge, shortened the keep-alive duration to free sockets faster, and confirmed connection_rejected_total returned to zero within thirty minutes."
+  },
+  {
+    "incident_id": "INC-007",
+    "symptom_summary": "A nightly reconciliation batch caused the reporting gateway's connection count to climb toward its process limit while a handful of upstream services stayed slow to release sockets, and retries from the batch job made the backlog grow faster than it drained.",
+    "resolved_root_cause": "network_ingress_queue_exhaustion",
+    "resolution": "Fixed the slow upstreams so they released connections promptly, tuned the proxy's max_connections and backlog settings to match the batch traffic profile, and paused the retry storm until the queue depth normalized."
+  },
+  {
+    "incident_id": "INC-008",
+    "symptom_summary": "The inventory-sync job began saturating its shared database pool after a deploy quietly doubled the number of concurrent worker threads, and acquisition wait time rose steadily even though individual query runtimes were unchanged.",
+    "resolved_root_cause": "db_connection_pool_exhaustion",
+    "resolution": "Reduced the worker pool's concurrency back to its prior level, reviewed retry backoff settings to avoid a reconnect storm, and validated that active connections stayed below the safe threshold under normal load afterward."
+  }
+]

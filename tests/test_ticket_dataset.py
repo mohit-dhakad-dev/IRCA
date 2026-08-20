@@ -29,11 +29,6 @@ def test_ticket_dataset_matches_schema_and_runbooks():
     runbook_roots = set()
     for file in runbook_files:
         content = (RUNBOOK_DIR / file).read_text()
-        for line in content.splitlines():
-            if line.startswith("## Root Cause"):
-                continue
-            if line.startswith("root_cause"):
-                continue
         marker = "## Root Cause"
         idx = content.find(marker)
         if idx != -1:
@@ -43,14 +38,7 @@ def test_ticket_dataset_matches_schema_and_runbooks():
                     runbook_roots.add(line.strip())
                     break
 
-    runbook_roots.update({
-        "db_connection_pool_exhaustion",
-        "memory_cache_overgrowth",
-        "network_ingress_queue_exhaustion",
-        "deploy_healthcheck_misconfiguration",
-        "auth_signing_key_mismatch",
-        "disk_log_rotation_gap",
-    })
+    assert len(runbook_roots) == 6
 
     ids = [ticket["id"] for ticket in tickets]
     assert len(ids) == len(set(ids))
