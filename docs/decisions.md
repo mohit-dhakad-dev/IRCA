@@ -454,3 +454,187 @@ cause in an isolated copy of the tree: the ticket join and both new incident
 joins now fail, where previously the ticket one passed.
 *Tripwire:* any assertion of the form `x in <set built from the data x came
 from>` deserves this same suspicion.
+
+---
+
+## Phase: Loop Integration (agent/orchestrator.py)
+
+Context: this phase contains the FIRST live Groq runs of the agent loop. Every
+prior phase's loop tests were stubbed, so several defects below had been sitting
+in committed, "passing" code since Session 5.
+
+**F1. The loop could never resolve, and stubbed tests could not have caught it.**
+`state.hypothesis` starts None; `_build_critic_digest` therefore renders
+"Current hypothesis: none yet"; `CRITIC_INSTRUCTION` asked the critic to assess
+"the current hypothesis". Shown none, the live model correctly refused and
+returned `supports=false, confidence=0.0, hypothesis="No hypothesis defined yet"`
+— which Step 5 then wrote into `state.hypothesis`, so every later round assessed
+the literal sentence "No hypothesis defined yet". `supports` never became true,
+`_credit_evidence` never ran, and every run escalated at the iteration cap
+regardless of evidence. Measured on T001: 8 successful tool calls,
+`evidence_sources=[]`, confidence 0.0.
+*The lesson worth keeping:* 172 tests passed throughout, because all of them
+stubbed the critic's response. The tests pinned our model of the critic, not the
+critic. A live smoke run is not optional for an LLM-in-the-loop system.
+
+**F2. Fixed by instructing inference, not by plumbing the act model's text.**
+The first attempt passed `message.content` as `answer_text`. It looked verified —
+substituting a hand-written act text flipped the same digest from
+supports=false/0.0 to supports=true/0.95 — but the verification tested the
+mechanism without checking its precondition. Measured after: gpt-oss-120b returns
+`content=None` whenever it emits tool calls, putting its reasoning in a separate
+field, so the argument is always "". The real fix is `CRITIC_INSTRUCTION`
+telling the critic to INFER the best-supported hypothesis when none is stated.
+Rejected: reading the provider-specific `message.reasoning`, which would couple
+the loop to a non-standard field and silently reintroduce the deadlock on a model
+repin. The `answer_text` pass-through was kept — correct for providers that do
+populate content, explicitly documented as not load-bearing.
+
+**F3. Inference had to be constrained in the same breath.**
+Telling the critic to infer rather than refuse produced a false resolve on the
+first try: T015 (`ambiguous`, `gold_root_cause: null`, `expected_behavior:
+escalate`) resolved at confidence 0.78 on a hypothesis naming no mechanism
+("occasional upstream service latency or cache miss bursts"), after its ERROR
+logs returned `empty`. `CRITIC_INSTRUCTION` now also states that an empty or
+no-match observation is absence of evidence and must LOWER confidence, and that
+a hypothesis naming no concrete checkable mechanism gets low confidence even when
+uncontradicted. The two rules are orthogonal — one governs the `hypothesis`
+field, the other `confidence` — so they do not fight. T015 subsequently
+escalated at 0.35.
+
+**F4. `OBSERVATIONAL_TOOLS`: retrieval alone cannot establish what is happening now.**
+`_credit_evidence` credits by bare tool name, so `search_runbooks` +
+`search_past_incidents` both returning "ok" satisfied MIN_EVIDENCE_SOURCES=2 with
+zero observation of the incident — contradicting design.md's rule that a memory
+hit must be verified via logs/metrics. `_can_resolve` now additionally requires
+at least one credited source from {query_logs, query_metrics}. T015 is the reason
+this is not theoretical: a confidently-wrong runbook match plus a memory hit that
+agrees with it is two "independent" sources agreeing on the same error.
+
+**F5. `_can_resolve` also requires a credited `search_runbooks`.**
+Live, once the deadlock was fixed, the agent resolved T001 and T009 in 2
+iterations on logs+metrics alone and never consulted a runbook at all — the RAG
+layer was reachable and unused, because the stop condition was satisfied before
+the agent had any reason to reach for it. A prompt line alone was rejected: the
+prior two prompt edits showed the model reliably optimizes for the stop
+condition, and a prompt competing with a satisfied stop condition loses.
+Because `_credit_evidence` only credits `status == "ok"`, and `search_runbooks`
+returns `no_confident_match` below its gate, a ticket with no confident runbook
+match now CANNOT resolve. That is the code-level expression of "escalate, do not
+fabricate a fix from a bad match".
+
+**F6. What the runbook requirement does NOT guarantee — stated plainly.**
+It guarantees *a* runbook was consulted and matched confidently. It does not
+guarantee the RIGHT runbook. T015 escalated live because the agent happened to
+query "slow upstream call exceeded latency budget", scoring 0.43, below the gate.
+eval/calibrate_retrieval.py measures T015's own ticket text retrieving RB-DB-001
+at 0.5739 — ABOVE the gate. Had the model phrased its query closer to the ticket
+text, the wrong runbook would have been credited and the run could have resolved
+incorrectly. The escalation is emergent from query phrasing, not enforced.
+*Tripwire:* this is the same confidently-wrong-retrieval failure watched case
+T015 exists to record. Do not read "T015 escalated" as evidence the design
+prevents it.
+
+**F7. FIXED — citations are structured and verified, not requested.**
+(Original finding, kept for the record, followed by what was done.)
+The hypothesis text is written by the CRITIC, not the act model. The doc_id
+instruction was added to `SYSTEM_PROMPT`, which only the act model sees, so it
+lands on the wrong model and no citation appears in the output. `TaskState` also
+has no final-answer or citation field, and design.md's verifier pass that checks
+citation presence does not exist. Fixable cheaply by requiring the citation in
+`CRITIC_INSTRUCTION` (the critic does see the runbook observations in its
+digest), but deliberately not done as a fourth tuning round on n=1 evidence.
+
+**Method note.** Every fix in this phase was validated on single live runs of
+1-3 tickets. Each was correct for the defect it targeted and revealed the next
+one, which is a good sign — but n=1 cannot separate a real behavioral change
+from model variance at temperature 0 with a changing prompt. None of F1-F6
+should be considered measured until the eval harness runs all 15 tickets.
+
+**F8. Citations: enforced in code, because asking has lost three times this phase.**
+`Assessment` and `TaskState` both gained `citations: list[str]`. `_can_resolve`
+now additionally requires at least one citation AND that EVERY citation is a
+doc_id actually returned this run by a `search_runbooks` observation with status
+"ok" — a fabricated doc_id blocks the resolve rather than being ignored. This is
+design.md's "verifier checks citation presence" pass, which had never been built.
+Rejected: asking for the doc_id in prose inside the hypothesis, which cannot be
+verified in code and is exactly the kind of request the model has repeatedly
+optimized away from.
+
+**F9. The citation feature would have silently done nothing.**
+`_format_observation` JSON-dumps an observation's `data` and truncates at 500
+chars. A `search_runbooks` observation's `data.chunks[*].text` holds whole
+runbook sections, so the `doc_id` fields were being cut off before the critic
+ever saw them — the critic could not have cited correctly even when willing, and
+would have returned empty citations or guessed. Fixed by rendering a compact
+`doc_ids=[...]` list ahead of the truncated blob. Rejected: raising the 500-char
+cap, which exists to bound a digest that already grows every round.
+*The general lesson:* a feature that depends on the model SEEING something needs
+a check that the something survives the pipeline. Verified live: the digest now
+carries `doc_ids=["RB-DB-001"]`, and the critic returns `citations=["RB-DB-001"]`
+with reasoning that names the runbook.
+
+**F10. RESOLVED — see G1 below. Original finding kept for the record.**
+The Groq free tier is 200k tokens/day and one loop run costs ~20k; this phase's
+live testing exhausted the daily quota, after which the loop correctly reported
+`status="error"` on every ticket (graceful, no crash, no invented data — the
+error path works). The citation mechanism was therefore verified at the component
+level only: the digest surfaces doc_ids, the critic emits structured citations,
+`_parse_assessment` accepts them, and `_can_resolve`'s fabrication guard is
+covered by offline tests. What has NOT been observed is a full live run resolving
+with a populated `state.citations`. One earlier critic call during the rate-limit
+window returned an unparseable reply; `finish_reason` was not captured, so it is
+recorded as an unexplained one-off to watch rather than diagnosed.
+*Tripwire:* re-run T001/T009/T015 live once quota resets, before trusting F8.
+
+---
+
+## Phase: Provider portability (agent/llm.py)
+
+**G1. F10 closed: the citation path is verified end-to-end, live.**
+T001 resolved at 0.95 with `citations=['RB-DB-001']`; T009 resolved at 0.95 with
+`citations=['RB-DISK-001']`; T015 escalated at 0.60 with `citations=[]`. T015 is
+the load-bearing case: it gathered three evidence sources including two
+observational, but `search_runbooks` returned `no_confident_match`, so no runbook
+was credited, so no citation existed, so `_can_resolve` refused and it escalated
+at the cap. The gate is enforcement, not persuasion.
+
+**G2. The provider is now configurable; the MODEL stays pinned.**
+`agent/llm.py` moved from the `groq` SDK to the `openai` SDK against a
+configurable `LLM_BASE_URL`, with `LLM_API_KEY` (falling back to `GROQ_API_KEY`)
+and `LLM_MODEL`. Defaults preserve the existing Groq behavior, so an unchanged
+`.env` keeps working. Driven by the Groq free tier's 200k/day limit being
+exhausted with no paid tier available.
+*The distinction that made this cheap:* `gpt-oss-120b` is open-weights, so
+switching HOST costs a base_url while switching MODEL would have invalidated
+every live finding in F1-F9. Rejected: adding Gemini, which would have meant a
+real multi-provider abstraction plus re-validating all the critic tuning against
+different tool-calling and JSON-mode semantics.
+
+**G3. Same weights do not guarantee same behavior — so it was acceptance-tested.**
+Serving stacks differ in chat templates and function-calling implementations, and
+F1-F3 are the record of how fragile that surface is. Before trusting the switch,
+three checks were run against the new endpoint: tool calls returned for the four
+schemas with correct args and no `ticket_id` (executor-injection defense intact);
+`message.content` is None on tool-calling turns (same quirk as Groq, so the F2
+reasoning holds); and the critic returns parseable bare JSON including
+`citations`. All three passed before any loop was run.
+*Tripwire:* re-run those three checks on any future provider or model change.
+They cost ~2k tokens and would have caught F1 and F2 immediately.
+
+**G4. Latency benchmarks were the wrong metric for this workload.**
+A ~1.17s time-to-first-token figure nearly drove the provider choice. Measured
+end-to-end, the new host ran the same three tickets in 19s/8s/56s against the old
+host's 33s/74s/316s — 3-5x FASTER despite the worse TTFT number. This is a batch
+eval with no human waiting; per-call TTFT is noise next to throughput, iteration
+count, and the transcript growth already documented in B11.
+*If wall-clock ever matters:* the 15 tickets are independent, so the eval harness
+should fan out concurrently. That beats any per-call latency tuning.
+
+**G5. Operational: the spend ceiling moved from hard to soft.**
+The Groq free tier STOPPED work at 200k tokens/day, which is a crude but
+effective budget guard. Per-token billing does not stop. At ~20k tokens per
+ticket run, a 15-ticket sweep is ~300k, and a day of loop debugging consumed
+about that much. Set a provider-side spend limit before running sweeps.
+*Also:* the key used to enable this was pasted into a chat transcript and must be
+rotated. `.env` is gitignored and no key belongs in a tracked file.

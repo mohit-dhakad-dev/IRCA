@@ -198,9 +198,89 @@
       for this tool is the contract's independent-verification rule, not the gate (E5/E6)
 - [ ] Both thresholds still rest on 15 tickets / 8 incidents. Re-run calibration when the
       ticket set expands to 50-80 (Session 2's deferred step)
-- [ ] The loop's system prompt in agent/orchestrator.py names neither search_runbooks nor
-      search_past_incidents, and still describes a query_logs -> query_metrics order. Both
-      tools are registered and callable but the loop will not reach for them until the
-      prompt names them — this is now the blocking item for Part C
+- [x] Done in the Loop Integration phase below
 - [ ] design.md's third escalate condition ("all tools tried, confidence < 0.75") is still
       deferred; with 4 tools now registered, reconsider it in Part C
+
+## Phase: Loop Integration (four tools in the loop) — FIRST LIVE RUNS
+- [x] SYSTEM_PROMPT rewritten for all four tools, with an EVIDENCE RULE (retrieval
+      describes OTHER incidents; confirm against this incident's own logs/metrics),
+      no_confident_match handling, and the untrusted-data warning extended to cover
+      retrieved runbook chunks and past-incident records (a new injection surface)
+- [x] No wiring needed: TOOL_SCHEMAS already carried all four and the orchestrator
+      already passed it through. Only the prompt narrative was stale
+- [x] FIRST live Groq runs of the loop. Found a hard deadlock that 172 stubbed tests
+      could not catch: the critic was asked to assess a hypothesis, was shown none,
+      correctly refused, and its refusal ("No hypothesis defined yet") was written back
+      into state.hypothesis, poisoning every later round. Every run escalated at the cap
+      regardless of evidence — T001: 8 successful tool calls, evidence_sources=[] (F1)
+- [x] Fixed via CRITIC_INSTRUCTION inference rule, NOT the act-text pass-through: measured,
+      gpt-oss-120b returns content=None whenever it emits tool calls (F2)
+- [x] Inference constrained in the same change: empty/no-match observations are absence of
+      evidence and must lower confidence; mechanism-free hypotheses get low confidence.
+      Without this, T015 false-resolved at 0.78 on a hypothesis naming no mechanism (F3)
+- [x] OBSERVATIONAL_TOOLS = {query_logs, query_metrics}; _can_resolve requires >=1 credited
+      observational source, so retrieval alone can no longer satisfy the >=2-source bar (F4)
+- [x] _can_resolve also requires a credited search_runbooks — live, the agent had been
+      resolving in 2 iterations on logs+metrics alone and never consulting a runbook.
+      Since only status=="ok" is credited, a no_confident_match cannot resolve (F5)
+- [x] Live after the fixes: T001 resolved 0.95/3 iters (RB-DB-001 @ 0.70), T009 resolved
+      0.95/3 iters (RB-DISK-001), T015 escalated 0.35/8 iters on no_confident_match
+- [x] 185 passed, 3 deselected. Reviewed: ship, two documentation findings, both applied
+- [ ] T015's escalation is NOT enforced by the design — it depended on the agent phrasing a
+      query that scored 0.43. Calibration measures T015's own ticket text retrieving the
+      WRONG runbook at 0.5739, above the gate. A closer-phrased query would have credited
+      the wrong runbook and could have resolved incorrectly (F6)
+- [x] Citations FIXED and enforced: Assessment + TaskState carry citations: list[str];
+      _can_resolve requires >=1 citation and that EVERY citation is a doc_id actually
+      returned this run by an "ok" search_runbooks observation, so a fabricated doc_id
+      blocks the resolve. This is design.md's missing citation-verification pass (F8)
+- [x] Caught that the feature would have silently done nothing: _format_observation
+      truncates data at 500 chars and runbook chunk text ate the doc_ids before the critic
+      saw them. Now renders a compact doc_ids=[...] ahead of the truncated blob (F9)
+- [x] Verified at component level: digest carries doc_ids=["RB-DB-001"], critic returns
+      citations=["RB-DB-001"], parse succeeds, fabrication guard covered offline
+- [x] VERIFIED end-to-end live (F10 closed, see G1): T001 resolved 0.95 citations
+      ['RB-DB-001']; T009 resolved 0.95 citations ['RB-DISK-001']; T015 escalated 0.60
+      citations [] because search_runbooks returned no_confident_match, so nothing was
+      credited and _can_resolve refused — enforcement, not persuasion
+- [ ] One critic call during the rate-limit window returned an unparseable reply and
+      finish_reason was not captured — unexplained one-off, watch for it (F10)
+- [ ] BUDGET CONSTRAINT for the eval phase: ~20k tokens per ticket run means a 15-ticket
+      sweep is ~300k, which does NOT fit in one day on the free tier. Plan for a paid tier,
+      a multi-day split, or a reduced subset
+- [ ] Everything in this phase was tuned on single live runs of 1-3 tickets. n=1 cannot
+      separate a real behavioral change from model variance. Nothing here is measured until
+      the eval harness runs all 15 tickets — that is the next phase and it now has real
+      questions to answer, not just a scorecard to fill in
+- [ ] Live runs cost 30-320s per ticket; a 15-ticket eval sweep will not be quick
+
+## Phase: Provider portability
+- [x] agent/llm.py moved to the openai SDK against a configurable LLM_BASE_URL, with
+      LLM_API_KEY (falling back to GROQ_API_KEY) and LLM_MODEL. Groq defaults preserved,
+      so an unchanged .env keeps working (G2)
+- [x] The MODEL stays pinned to openai/gpt-oss-120b. Because it is open-weights, switching
+      HOST cost a base_url; switching MODEL would have invalidated every live finding in
+      F1-F9 (G2)
+- [x] Acceptance-tested the new endpoint BEFORE trusting it: tool calls returned for all
+      four schemas with correct args and no ticket_id, content is None on tool-calling
+      turns, critic returns parseable JSON with citations. ~2k tokens; would have caught
+      F1 and F2 immediately (G3)
+- [x] CLAUDE.md provider rule updated; .env.example documents the three vars (placeholders
+      only, no real keys); openai added to requirements.txt
+- [x] 201 passed, 3 deselected
+- [x] Latency worry was unfounded: new host ran the same tickets 3-5x faster end-to-end
+      despite a worse TTFT benchmark. TTFT is noise for a batch eval (G4)
+- [ ] ROTATE the current API key — it was pasted into a chat transcript (G5)
+- [x] Cost measured, not estimated: resolving ticket $0.0017 (10.1k in / 1.3k out, 6 calls),
+      escalating ticket $0.0060 (40k in / 4k out, 16 calls). A 15-ticket sweep is ~$0.06,
+      so a $2 budget is ~35 sweeps. Escalating tickets cost 3.6x resolving ones because
+      they burn the iteration cap on a growing transcript, so eval cost scales with the
+      FAILURE rate rather than ticket count. Cached pricing equals input pricing, so prompt
+      caching buys nothing here (G5)
+- [ ] Budget is no longer the constraint — n=1 is. Spend it on REPEATED sweeps (5 runs
+      = ~$0.30) to get variance on resolve/escalate rates, RAG-skip frequency, and
+      false-resolve rate, rather than one careful run that still cannot distinguish a real
+      behavioral change from model variance
+- [ ] Eval harness should fan out over the 15 independent tickets concurrently — that beats
+      any per-call latency tuning for wall-clock (G4)

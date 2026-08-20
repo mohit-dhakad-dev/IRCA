@@ -17,6 +17,7 @@ def test_defaults_on_minimal_construction():
     assert state.hypothesis is None
     assert state.confidence == 0.0
     assert state.evidence_sources == []
+    assert state.citations == []
     assert state.iteration == 0
     assert state.max_iterations == 8
     assert state.called_tool_signatures == set()
@@ -92,3 +93,11 @@ def test_called_tool_signatures_excluded_from_serialization():
 
 def test_iteration_count_field_removed():
     assert "iteration_count" not in TaskState.model_fields
+
+
+def test_citations_carried_and_visible_in_model_dump():
+    state = _make_state(citations=["RB-DB-001", "RB-DB-002"])
+
+    assert state.citations == ["RB-DB-001", "RB-DB-002"]
+    dumped = state.model_dump()
+    assert dumped["citations"] == ["RB-DB-001", "RB-DB-002"]
