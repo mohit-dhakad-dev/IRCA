@@ -118,6 +118,61 @@ Final verification: a separate verifier prompt checks the proposed fix against r
 Single-agent, and I say so explicitly: one agent with a reason-act loop is sufficient here because there is one coherent objective (diagnose-and-resolve) and one shared state; splitting into "planner agent" + "executor agent" + "critic agent" would just be the same functions relabeled as separate LLM calls with added latency/cost and no new capability. I would only justify multi-agent if there were genuinely parallel, independently-specialized workstreams (e.g., a separate agent per subsystem investigated concurrently) — not the case at this scale.
 
 
+## Agentic Loop — Stop Conditions (Session 5 spec)
+
+**Stop-success ("resolved"):**
+- confidence >= 0.75 AND
+- len(evidence_sources) >= 2 (independent tool/RAG sources agreeing on the same hypothesis)
+
+**Stop-escalate:**
+- iteration >= max_iterations (8), OR
+- 2 consecutive tool calls returned no new information (status == "empty" or repeated observation with no confidence change), OR
+- all available tools + RAG have been tried at least once and confidence is still < 0.75
+
+**Replan trigger:**
+- new observation contradicts current hypothesis (confidence should drop, and next LLM call should be told the previous hypothesis was likely wrong, not just silently forgotten)
+
+**Loop guard:**
+- if (tool_name, args) has already been called this run, do not re-execute it — inject a system note instead ("already tried this exact call, choose a different action") and treat it as a forced-replan trigger
+
+**Iteration cap:** 8, hard stop regardless of confidence
+
+
+## RAG + Memory — Retrieval Contract (Session 6 spec)
+
+**search_runbooks(query: str) -> top-3 chunks**
+- Chunk by markdown section (## headers), not fixed token windows.
+- Return {doc_id, section, text, score}. If top score < 0.5, return status="no_confident_match" 
+  instead of forcing a weak result — the agent must escalate, not fabricate a fix from a bad match.
+
+**Empirically observed:** top-1 retrieval can be confidently wrong (T015: RB-DB-001 scored 0.57,
+inside the normal correct-match range, while gold RB-NETWORK-001 ranked 4th). This is why
+search_runbooks output is treated as a hypothesis input to the critic, never as ground truth on
+its own — see loop stop conditions (>=2 independent evidence sources).
+
+**0.5 threshold** has ~0.05 margin against the lowest correct-match score (0.5511) observed on
+the current 15-ticket set. Re-run eval/calibrate_retrieval.py once the ticket set expands to
+50-80 (Session 2's deferred step) to confirm this margin holds at scale before treating 0.5 as
+final.
+
+**search_past_incidents(query: str) -> top-3 past incidents**
+- Return {incident_id, symptom_summary, resolved_root_cause, resolution, similarity_score}.
+- A memory hit is a HINT, never authoritative on its own — the agent must still independently 
+  verify via query_logs/query_metrics before trusting it (per design.md Step 6).
+
+**0.40 threshold** for search_past_incidents is deliberately lower than search_runbooks' 0.5,
+because memory scores on a structurally lower scale: correct top-1 matches measured
+0.3244-0.6170 (median 0.5719) against runbooks' 0.5511-0.7992 (median 0.7171). Mirroring 0.5
+onto memory was measured to return no_confident_match for 4 of the 13 gold-bearing tickets
+whose correct incident was in fact retrieved. The looser gate is defensible specifically
+because a memory hit is already a HINT requiring independent verification via
+query_logs/query_metrics — the gate is not the safeguard for this tool, verification is. That
+argument does not extend to search_runbooks. Correct and wrong scores overlap here too (a
+wrong top-1 at 0.5981 sits above the correct median 0.5719), so no threshold separates them;
+re-run eval/calibrate_retrieval.py when the ticket set expands.
+
+Both are READ tools — no approval gate needed, unlike update_ticket.
+
 Tool Ecosystem
 Tool
 Purpose

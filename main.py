@@ -1,8 +1,10 @@
 import uuid
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
+from agent.orchestrator import run_agent_loop
 from agent.single_pass import run_single_pass
 from agent.state import TaskState
 from tools.fake_data import get_ticket
@@ -13,6 +15,11 @@ class TicketCreateRequest(BaseModel):
 
 
 app = FastAPI(title="IRCA MVP")
+
+
+@app.get("/")
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.post("/tickets")
@@ -28,8 +35,8 @@ def create_ticket(payload: TicketCreateRequest) -> TaskState:
             "Inspect available evidence",
             "Prepare a diagnostic response",
         ],
-        iteration_count=0,
-        trajectory=["ticket_received"],
+        iteration=0,
+        trajectory=[],
     )
 
     return task_state
@@ -41,3 +48,11 @@ def diagnose_ticket(ticket_id: str) -> dict:
     if get_ticket(ticket_id) is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticket id '{ticket_id}'.")
     return run_single_pass(ticket_id)
+
+
+@app.post("/tickets/{ticket_id}/resolve")
+def resolve_ticket(ticket_id: str) -> TaskState:
+    """Run the full agent loop (plan/act/observe/replan/verify) for a known synthetic ticket."""
+    if get_ticket(ticket_id) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticket id '{ticket_id}'.")
+    return run_agent_loop(ticket_id)

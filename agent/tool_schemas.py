@@ -133,7 +133,75 @@ QUERY_METRICS_SCHEMA = {
     },
 }
 
-TOOL_SCHEMAS = [QUERY_LOGS_SCHEMA, QUERY_METRICS_SCHEMA]
+SEARCH_RUNBOOKS_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "search_runbooks",
+        "description": (
+            "Search the runbook knowledge base for the sections most relevant to a "
+            "symptom description, returning up to 3 sections with similarity scores. "
+            "Pass SYMPTOM TEXT — what is actually failing and the observed error "
+            "signature (e.g. 'connection pool timeout errors, active connections "
+            "pinned at max') — not the ticket title and not a bare service name; "
+            "chunks are embedded from runbook prose describing symptoms and fixes, so "
+            "matching wording retrieves best. If the result status is "
+            "'no_confident_match', none of the sections found were similar enough to "
+            "trust — do NOT invent or guess a fix from them; escalate or gather more "
+            "evidence instead."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "Symptom text to search for, e.g. the dominant log pattern or "
+                        "the metric anomaly observed so far. Not the ticket title, not "
+                        "just a service name."
+                    ),
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+SEARCH_PAST_INCIDENTS_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "search_past_incidents",
+        "description": (
+            "Search the memory of previously-resolved incidents for ones with similar "
+            "symptoms, returning up to 3 past incidents with similarity scores. Pass "
+            "OBSERVED SYMPTOM TEXT — what is actually failing and the observed error "
+            "signature, e.g. 'connection pool timeout errors, active connections pinned "
+            "at max' — not the ticket title and not a bare service name. A returned match "
+            "is only a HINT: it must be independently verified with query_logs / "
+            "query_metrics before its root cause is adopted. A past incident is not "
+            "evidence about the current one, however similar it looks. If the result "
+            "status is 'no_confident_match', no prior incident was similar enough to "
+            "trust — do NOT infer a root cause from it."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": (
+                        "Symptom text to search for, e.g. the dominant log pattern or "
+                        "the metric anomaly observed so far. Not the ticket title, not "
+                        "just a service name."
+                    ),
+                },
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+TOOL_SCHEMAS = [QUERY_LOGS_SCHEMA, QUERY_METRICS_SCHEMA, SEARCH_RUNBOOKS_SCHEMA, SEARCH_PAST_INCIDENTS_SCHEMA]
 
 # Args every tool function in tools/log_tools.py requires but which are
 # supplied by the executor from TaskState, never by the model — kept out of

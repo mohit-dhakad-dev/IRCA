@@ -10,14 +10,9 @@ from __future__ import annotations
 import json
 
 from agent.llm import call_llm_with_tools
+from agent.tool_executor import TOOL_REGISTRY, execute_tool_call
 from agent.tool_schemas import TOOL_SCHEMAS
 from tools.fake_data import get_ticket
-from tools.log_tools import query_logs, query_metrics
-
-TOOL_REGISTRY: dict[str, callable] = {
-    "query_logs": query_logs,
-    "query_metrics": query_metrics,
-}
 
 SYSTEM_PROMPT = """You are an incident diagnosis assistant for an internal IT/software platform.
 You have tools that query logs and metrics for the incident under investigation; call them
@@ -39,71 +34,6 @@ FINAL_INSTRUCTION = (
     "the evidence supporting it, and a confidence level of high/medium/low. If the "
     "evidence is insufficient, say so and give low confidence."
 )
-
-
-def _tool_call_error(name: str, summary: str) -> dict:
-    """Build the shared error-record shape returned by _execute_tool_call."""
-    return {
-        "name": name,
-        "arguments": {},
-        "status": "error",
-        "result": {
-            "status": "error",
-            "data": {},
-            "summary": summary,
-        },
-    }
-
-
-def _execute_tool_call(tool_call, ticket_id: str) -> dict:
-    """Execute one model-requested tool call with ticket_id injected by the executor."""
-    name = tool_call.function.name
-
-    try:
-        args = json.loads(tool_call.function.arguments)
-    except json.JSONDecodeError as exc:
-        return _tool_call_error(name, f"Could not parse arguments for {name}: {exc}")
-
-    if not isinstance(args, dict):
-        return _tool_call_error(
-            name,
-            f"Arguments for {name} must be a JSON object, got {type(args).__name__}.",
-        )
-
-    if name not in TOOL_REGISTRY:
-        return {
-            "name": name,
-            "arguments": args,
-            "status": "error",
-            "result": {
-                "status": "error",
-                "data": {},
-                "summary": f"Unknown tool '{name}'.",
-            },
-        }
-
-    # The model never supplies ticket_id — it is absent from the schema in
-    # agent/tool_schemas.py by design. Any ticket_id the model emits anyway
-    # (e.g. because injected log text talked it into one) is silently
-    # overwritten here, not merged; which incident we are querying is the
-    # executor's decision, not the model's.
-    args["ticket_id"] = ticket_id
-
-    try:
-        result = TOOL_REGISTRY[name](**args)
-    except TypeError as exc:
-        result = {
-            "status": "error",
-            "data": {},
-            "summary": f"Could not call {name} with the given arguments: {exc}",
-        }
-
-    return {
-        "name": name,
-        "arguments": args,
-        "status": result.get("status", "error"),
-        "result": result,
-    }
 
 
 def run_single_pass(ticket_id: str) -> dict:
@@ -173,7 +103,7 @@ def run_single_pass(ticket_id: str) -> dict:
 
     records = []
     for tool_call in tool_calls:
-        record = _execute_tool_call(tool_call, ticket_id)
+        record = execute_tool_call(tool_call, ticket_id)
         records.append(record)
         messages.append(
             {
