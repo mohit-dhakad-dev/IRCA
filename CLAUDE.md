@@ -13,7 +13,10 @@ using RAG over runbooks and a memory of past incidents.
 - Only touch files relevant to the current task — do not refactor unrelated code.
 - No real external APIs except the LLM provider. Logs/metrics/tickets are synthetic 
   (see tools/fake_data.py once created).
-- Use Groq API (openai/gpt-oss-120b) as the LLM provider, key in .env as GROQ_API_KEY.
+- The LLM is pinned to the `openai/gpt-oss-120b` model (open-weights, so multiple
+  hosts serve it). The provider is configured via `LLM_BASE_URL` / `LLM_API_KEY` /
+  `LLM_MODEL` in `.env` (see `.env.example`); Groq and Baseten are known-working
+  endpoints. `GROQ_API_KEY` alone still works as a fallback for `LLM_API_KEY`.
   (llama-3.3-70b-versatile was the original pin; it has been retired on Groq and now 404s.)
 
 ## Delegation policy
