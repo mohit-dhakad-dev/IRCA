@@ -284,3 +284,81 @@
       behavioral change from model variance
 - [ ] Eval harness should fan out over the 15 independent tickets concurrently — that beats
       any per-call latency tuning for wall-clock (G4)
+
+## Phase: Write Gate (Parts A/B/C — approval-gated writes)
+- [x] Part A: agent/approval.py — PendingAction model; verify_against_constraints parses the
+      cited runbook's ## Constraints via rag.ingest.parse_runbook and checks numeric bounds
+      against the proposed fix; in-memory pending-action store
+- [x] Constraint matcher extracts bounds per SEMICOLON-separated clause with subject tokens
+      drawn from that clause's own wording, and only checks a fix number against a bound when
+      the UNIT matches AND a subject token from that clause appears in the fix text. Flat
+      unit-only matching (the first implementation) produced false violations on real runbooks:
+      RB-DEPLOY-001's timeoutSeconds<=5s and initialDelaySeconds>=15s both normalize to unit
+      "seconds", so a correct 3-second timeout fix was rejected by the unrelated
+      initialDelaySeconds bound; RB-DB-001 and RB-MEMORY-001 had the same collision on "%"
+- [x] The first version's test for that exact case used a synthetic single-bullet runbook that
+      dodged the collision; tests now run against the real data/runbooks files. 4 of the 6 new
+      assertions were confirmed to fail against the pre-fix code
+- [x] Part B: tools/ticket_tools.py update_ticket — verify_against_constraints runs BEFORE
+      queueing; a failing verification returns status="verification_failed" with nothing
+      queued, a passing one returns status="awaiting_approval" with a new PendingAction
+- [x] tools/ticket_store.py — apply_write is the ONLY mutation path, and the status=="approved"
+      guard lives INSIDE the function, not at the call site
+- [x] Four /approvals endpoints (GET list, GET one, POST approve, POST reject) with 404 on an
+      unknown action_id and 409 if the action is not currently "pending"
+- [x] update_ticket registered in TOOL_REGISTRY and added to TICKET_SCOPED_TOOLS, so the
+      executor overwrites any model-supplied ticket_id exactly as it does for query_logs/
+      query_metrics; UPDATE_TICKET_SCHEMA exposes no ticket_id parameter
+- [x] Approve-handler TOCTOU fix: status was set to "approved" BEFORE calling apply_write, so a
+      raising apply_write left the action permanently stuck in "approved" (the endpoint only
+      acts on "pending", apply_write only writes on "approved") with no path to retry. Fixed by
+      reverting status to "pending" on failure and returning 500
+- [x] The static invariant guard (an AST-based test that tools/ticket_tools.py contains no
+      import of tools.ticket_store) is deliberately labelled a WEAK secondary tripwire — it
+      cannot catch e.g. importlib called with a dynamically built module name. The real
+      enforcement is the runtime assertion that RESOLVED_TICKETS is still empty immediately
+      after update_ticket returns. This replaced an earlier source-substring scan that had
+      distorted both modules' docstrings into circumlocutions just to avoid tripping itself
+- [x] Part C: agent/orchestrator.py _queue_write_action is the loop's terminal action for a
+      resolved run — one dedicated "compose the fix" LLM call on a COPY of the messages list,
+      then update_ticket called DIRECTLY (not via execute_tool_call), because ticket_id comes
+      from TaskState and routing through the model's tool-choice path would reopen the
+      injection hole TICKET_SCOPED_TOOLS exists to close
+- [x] One retry on verification_failed, feeding the rejection reason back into the next compose
+      prompt (MAX_WRITE_ATTEMPTS=2); if both attempts fail verification the run is demoted from
+      resolved to escalated rather than silently dropping the write
+- [x] New TaskState.pending_action_id, set only on a successful queue
+- [x] The loop does NOT read the ticket's expected_behavior field anywhere — that field is gold
+      eval data, and reading it would leak the answer into the run. The write decision comes
+      purely from _can_resolve's own belief-state check. An escalated run cannot reach
+      _queue_write_action's call site structurally (it lives inside the single `if
+      _can_resolve(state)` branch), not via a conditional guard that could be bypassed
+- [x] The compose call retries once on a transient LLM error — it was the only LLM call site in
+      orchestrator.py without one, and a single blip would have discarded a fully-evidenced
+      resolved run. This retry is nested INSIDE one compose attempt so it does not consume any
+      of the MAX_WRITE_ATTEMPTS verification budget
+- [x] 11 pre-existing tests in tests/test_orchestrator.py each needed one extra scripted compose
+      response, since a resolved run now makes one more LLM call than before; the scripted fix
+      text was chosen to pass the real verifier so those tests still assert a resolve rather
+      than silently becoming escalation tests
+- [x] test_digest_carries_prior_observation_summary's count assertion was first merged 3->4 and
+      then split into separate critic-call-count (3) and compose-call-count (1) assertions,
+      because the merged count could no longer distinguish the write gate firing from an extra
+      critic round — restoring a regression it existed to catch
+- [x] Final suite: 231 passed, 3 deselected, fully offline
+- [ ] NOT run against a live model. Everything in this phase is stubbed. Given F1/F2 (a deadlock
+      that survived 172 stubbed tests and appeared on the first real run), the compose prompt in
+      particular is unvalidated — needs a live run on a resolving ticket (T001) and an
+      escalating one (T015)
+- [ ] The constraint matcher can misattribute which bullet it cites: "Set maxmemory to 95%"
+      against RB-MEMORY-001 correctly FAILS but quotes the used_memory_rss<75% bullet rather
+      than the maxmemory<=80% one. Verdict right, quoted bullet suboptimal
+- [ ] Latent: _queue_write_action retries a non-verification_failed update_ticket status (e.g.
+      "error") using constraints-rejection wording that does not fit. Unreachable today since
+      all four update_ticket args are guaranteed non-empty by that point
+- [ ] Both stores (pending actions, RESOLVED_TICKETS) are in-memory and do not survive a
+      restart. Fine for MVP, not for the eval harness if it ever runs across processes
+- [ ] The approval flow has no UI — approve/reject is curl against the endpoints
+- [ ] Constraint verification is a shallow regex heuristic, not reasoning: it can miss a real
+      violation on unusual phrasing and can flag a safe fix. The human approver is the actual
+      safeguard, not this function

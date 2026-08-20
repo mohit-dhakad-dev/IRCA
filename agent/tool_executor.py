@@ -14,18 +14,23 @@ from agent.tool_schemas import EXECUTOR_INJECTED_ARGS
 from memory.store import search_past_incidents
 from rag.retrieve import search_runbooks
 from tools.log_tools import query_logs, query_metrics
+from tools.ticket_tools import update_ticket
 
 TOOL_REGISTRY: dict[str, callable] = {
     "query_logs": query_logs,
     "query_metrics": query_metrics,
     "search_runbooks": search_runbooks,
     "search_past_incidents": search_past_incidents,
+    "update_ticket": update_ticket,
 }
 
 # Tools that take an executor-injected ticket_id, as opposed to search_runbooks
 # and search_past_incidents (read-only knowledge-base lookups with no notion
-# of a specific ticket).
-TICKET_SCOPED_TOOLS = {"query_logs", "query_metrics"}
+# of a specific ticket). update_ticket is the only WRITE (write-adjacent, via
+# the approval gate) tool in the registry, and is ticket-scoped for exactly
+# that reason: the model must never be able to name which ticket its proposed
+# resolution applies to.
+TICKET_SCOPED_TOOLS = {"query_logs", "query_metrics", "update_ticket"}
 
 
 def _tool_call_error(name: str, summary: str) -> dict:

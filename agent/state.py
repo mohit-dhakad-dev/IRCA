@@ -36,3 +36,7 @@ class TaskState(BaseModel):
 
     # history
     trajectory: list[dict] = Field(default_factory=list)
+
+    # write gate (Session 7 spec): tracks the PendingAction, if any, queued by
+    # _queue_write_action for human approval. None until a write is queued.
+    pending_action_id: str | None = None

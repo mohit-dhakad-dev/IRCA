@@ -63,6 +63,12 @@ def test_level_enum_matches_severity_order_exactly():
 
 def test_tool_schemas_list_names_and_type():
     names = [schema["function"]["name"] for schema in TOOL_SCHEMAS]
-    assert names == ["query_logs", "query_metrics", "search_runbooks", "search_past_incidents"]
+    assert names == [
+        "query_logs",
+        "query_metrics",
+        "search_runbooks",
+        "search_past_incidents",
+        "update_ticket",
+    ]
     for schema in TOOL_SCHEMAS:
         assert schema["type"] == "function"

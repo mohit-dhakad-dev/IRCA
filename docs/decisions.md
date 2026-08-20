@@ -638,3 +638,78 @@ ticket run, a 15-ticket sweep is ~300k, and a day of loop debugging consumed
 about that much. Set a provider-side spend limit before running sweeps.
 *Also:* the key used to enable this was pasted into a chat transcript and must be
 rotated. `.env` is gitignored and no key belongs in a tracked file.
+
+---
+
+## Phase: Write Gate (agent/approval.py, tools/ticket_tools.py, tools/ticket_store.py, orchestrator terminal step)
+
+**H1. The constraint matcher uses subject-token + unit matching, scoped per
+semicolon-separated clause.** A fix number is checked against a bound only if
+the units match AND at least one of that clause's subject tokens (words drawn
+from the clause's own wording, minus comparator phrasing and a stopword list)
+appears in the fix text. Rejected: flat unit-only matching, the first
+implementation, which produced concrete false violations — RB-DEPLOY-001's
+`timeoutSeconds <= 5s` and `initialDelaySeconds >= 15s` both normalize to unit
+`"seconds"`, so a correct 3-second timeout fix tripped the unrelated
+initialDelaySeconds bound; RB-DB-001 and RB-MEMORY-001 collide the same way on
+`"%"`. Also rejected: full NL reasoning over the Constraints section (an LLM
+call per proposed fix) — out of scope for this phase, since a human approves
+every action regardless, so this function only needs to be a cheap tripwire,
+not the safeguard itself.
+
+**H2. `update_ticket` is ticket-scoped: it takes no `ticket_id` from the model.**
+`UPDATE_TICKET_SCHEMA` omits the parameter and `TICKET_SCOPED_TOOLS` includes
+`update_ticket`, so the executor injects `ticket_id` from `TaskState` and
+overwrites anything the model supplies — identical treatment to `query_logs`/
+`query_metrics`. Rejected: letting the model supply `ticket_id`, which would let
+a prompt-injected instruction ("resolve ticket T999 instead") queue a write
+against the wrong incident.
+
+**H3. The mutation function (`apply_write`) lives in a module the model-facing
+tool never imports, and the runtime empty-store assertion is the real
+enforcement — not the static check.** `tools/ticket_tools.py` does not import
+`tools/ticket_store.py` at all, so there is no code path from the tool to a
+mutation to accidentally wire up. Rejected: keeping both in one module behind an
+internal "don't call this from the tool" comment convention, which is exactly
+the kind of rule a future edit silently violates. An AST-based test does check
+that `ticket_tools.py` contains no import of `ticket_store`, but it is
+deliberately documented as a WEAK secondary tripwire — it cannot catch
+`importlib.import_module` called with a dynamically built name. The honest
+primary guard is a separate test asserting `RESOLVED_TICKETS` is still empty
+immediately after `update_ticket` returns; that one cannot be fooled by import
+mechanics because it observes the actual mutation surface.
+
+**H4. `POST /approvals/{action_id}/approve` and `/reject` take no request
+body.** Rejected: letting a human edit the fix text at approval time, which is
+a materially different feature (approve-with-edits) than approve/reject of what
+the agent proposed, and was not asked for in this phase's spec.
+
+**H5. The loop composes the write with a dedicated extra LLM call in
+`_queue_write_action`, rather than widening the critic's `Assessment` contract
+with a `proposed_fix` field.** The `Assessment` model / `CRITIC_INSTRUCTION`
+pairing took real live debugging to stabilize (F1-F3: the hypothesis-deadlock,
+the `content=None` inference fix, the confidence-constraint rules), and none of
+that stability was worth reopening for a field this phase doesn't need on every
+critic round — the fix only needs to be composed once, at the very end of a
+resolved run.
+
+**H6. Twice-failed verification demotes the run from `resolved` to
+`escalated`, with `MAX_WRITE_ATTEMPTS = 2`.** Rejected: resolving anyway without
+queueing a write, which would silently drop docs/design.md's requirement that a
+`verification_failed` result forces a replan rather than being discarded — the
+run would report "resolved" with nothing actually queued for a human to act on.
+Also rejected: unlimited retries, which has no natural stopping point and could
+loop the compose call indefinitely against a runbook constraint the model
+cannot satisfy no matter how it rephrases the fix.
+
+**H7. The loop never reads a ticket's `expected_behavior` field, anywhere.**
+The literal reading of the phase request — "when `expected_behavior` is
+`resolve_with_approval`, call `update_ticket`" — was rejected even though it is
+a direct match for the spec's wording, because `expected_behavior` is gold eval
+data. Reading it to decide whether to write would leak the answer into the run
+itself, making the eval unable to tell a correct resolve from a leaked one. The
+write decision instead comes purely from `_can_resolve`'s own belief-state
+check (confidence, evidence sources, citations) — the same mechanism that
+already decides resolve vs. escalate everywhere else in the loop. Both
+specified test cases (a resolving ticket, an escalating one) produce the same
+observable behavior either way, so nothing is lost by not reading the field.

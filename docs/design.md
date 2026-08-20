@@ -173,7 +173,31 @@ re-run eval/calibrate_retrieval.py when the ticket set expands.
 
 Both are READ tools — no approval gate needed, unlike update_ticket.
 
+## Write Action + Approval Gate (Session 7 spec)
 
+**update_ticket(ticket_id, proposed_root_cause, proposed_fix, citation_doc_id) -> pending approval**
+- This tool NEVER executes directly. Calling it creates a PendingAction record and returns
+  status="awaiting_approval" — it does not write to the ticket store until approved.
+- Verifier runs BEFORE the action is queued: checks proposed_fix against the cited runbook's
+  Constraints section (e.g. numeric bounds). If it violates a constraint, reject before queueing,
+  return status="verification_failed" with the reason, forcing the agent to replan.
+- Approval endpoint: POST /approvals/{action_id}/approve or /reject — only this endpoint can
+  cause the actual ticket write to happen.
+- No LLM call, prompt, or agent decision can bypass this: tools/ticket_tools.py (which exposes
+  update_ticket to the model) does not import tools/ticket_store.py at all, so no code path runs
+  from the model-facing tool to a mutation. The only mutation function is
+  tools.ticket_store.apply_write, whose sole caller is the POST /approvals/{action_id}/approve
+  handler in main.py, and apply_write itself refuses any action whose status is not "approved".
+
+## Ticket Set Expansion (Session 8 spec)
+- easy: 15
+- multi_step: 20
+- tool_heavy: 10
+- rag_heavy: 10
+- ambiguous: 10
+- failure_injected: 10   (new category — needs corresponding fake_data.py support)
+- adversarial: 10        (new category — prompt injection in ticket_text/log content)
+Total: ~85, trim to taste
 
 Tool Ecosystem
 Tool

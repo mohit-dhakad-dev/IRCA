@@ -103,6 +103,21 @@ def _stub_tool(status="ok", summary="stub"):
 # for docs/decisions.md F7).
 RUNBOOK_DOC_ID = "RB-DB-001"
 
+# A resolved run now makes one extra LLM call after the loop's stop checks:
+# _queue_write_action (the loop's terminal action for a resolved run) asks
+# the model to compose a fix, then verifies it against the cited runbook's
+# Constraints section before queuing a PendingAction. Every test below that
+# reaches "resolved" needs one more scripted text response for that compose
+# call. This fix text is written to actually PASS verify_against_constraints
+# for RB-DB-001 (no numeric value it states violates that runbook's pool-size
+# bounds), so these tests keep exercising a successful resolve rather than
+# silently becoming escalation tests.
+WRITE_GATE_FIX_TEXT = (
+    "Increase the database pool size to a safe higher limit within the "
+    "documented ceiling, keeping at least 25% headroom below the DB's hard "
+    "limit, then monitor active connections for 45 minutes."
+)
+
 
 def _stub_runbook_tool(doc_id=RUNBOOK_DOC_ID, status="ok", summary="stub"):
     def fn(**kwargs):
@@ -222,6 +237,10 @@ def test_scripted_two_step_resolve(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    # The loop's terminal action for a resolved run is queueing the write
+    # (_queue_write_action), which makes one more LLM call (compose) than
+    # a resolved run used to -- hence this extra scripted response.
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -419,6 +438,7 @@ def test_contradiction_is_surfaced(monkeypatch):
         captured.append([m["content"] for m in messages])
         return responses.pop(0)
 
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
 
     state = run_agent_loop(TICKET_ID)
@@ -523,6 +543,7 @@ def test_backoff_fires_on_act_retry_not_on_critic_reask(monkeypatch):
         ),  # round 3 act
         _assessment_response("db issue", 0.9, True, citations=[RUNBOOK_DOC_ID]),  # round 3 critic
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -574,6 +595,7 @@ def test_critic_called_with_no_tools(monkeypatch):
         captured_tools.append(tools)
         return responses.pop(0)
 
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
 
     state = run_agent_loop(TICKET_ID)
@@ -666,18 +688,30 @@ def test_digest_carries_prior_observation_summary(monkeypatch):
     ]
 
     critic_user_contents = []
+    compose_user_contents = []
 
     def fake_call(messages, tools):
         if not tools:
-            critic_user_contents.append(messages[-1]["content"])
+            # The write-gate's compose call also passes tools=[], so it lands
+            # in this same "no tools" branch as a critic pass would -- tell
+            # them apart by content rather than merging them into one count,
+            # which would hide a real critic-loop regression (an extra
+            # critic round firing) behind "the write gate must have fired".
+            content = messages[-1]["content"] or ""
+            if orchestrator_module.WRITE_COMPOSE_INSTRUCTION in content:
+                compose_user_contents.append(content)
+            else:
+                critic_user_contents.append(content)
         return responses.pop(0)
 
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
 
     state = run_agent_loop(TICKET_ID)
 
     assert state.status == "resolved"
     assert len(critic_user_contents) == 3
+    assert len(compose_user_contents) == 1
     # Round 2's critic digest still carries round 1's summary forward,
     # sourced from state.trajectory rather than the (now unused) main
     # tool-calling conversation.
@@ -727,6 +761,7 @@ def test_evidence_credited_across_a_failed_critic_round(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -988,6 +1023,7 @@ def test_one_observational_plus_one_retrieval_source_resolves(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -1043,6 +1079,7 @@ def test_critic_infers_hypothesis_on_first_tool_calling_round(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -1085,6 +1122,7 @@ def test_placeholder_hypothesis_is_replaced_by_later_inference(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -1272,6 +1310,7 @@ def test_logs_and_runbook_evidence_resolves(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)
@@ -1411,6 +1450,7 @@ def test_loop_resolves_when_citation_matches_observed_doc_id(monkeypatch):
             "db_connection_pool_exhaustion", 0.9, True, citations=["RB-DB-001"]
         ),
     ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
     _install_responses(monkeypatch, responses)
 
     state = run_agent_loop(TICKET_ID)

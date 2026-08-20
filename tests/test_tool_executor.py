@@ -126,5 +126,14 @@ def test_ticket_scoped_and_registry_stay_in_sync():
     # surface as a mystery TypeError at runtime instead of failing here.
     # Every tool must be consciously placed in one bucket or the other.
     assert TICKET_SCOPED_TOOLS <= set(TOOL_REGISTRY)
+    # update_ticket is ticket-scoped because it is a WRITE (approval-gated) tool.
     non_scoped = set(TOOL_REGISTRY) - TICKET_SCOPED_TOOLS
     assert non_scoped == {"search_runbooks", "search_past_incidents"}
+    # Pin the full registry so a future tool cannot be added unnoticed.
+    assert set(TOOL_REGISTRY) == {
+        "query_logs",
+        "query_metrics",
+        "search_runbooks",
+        "search_past_incidents",
+        "update_ticket",
+    }

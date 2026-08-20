@@ -201,7 +201,57 @@ SEARCH_PAST_INCIDENTS_SCHEMA = {
     },
 }
 
-TOOL_SCHEMAS = [QUERY_LOGS_SCHEMA, QUERY_METRICS_SCHEMA, SEARCH_RUNBOOKS_SCHEMA, SEARCH_PAST_INCIDENTS_SCHEMA]
+UPDATE_TICKET_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "update_ticket",
+        "description": (
+            "Queue a proposed resolution for a ticket for HUMAN APPROVAL. This "
+            "never changes a ticket by itself -- it only creates a pending "
+            "action that a human must separately approve. `citation_doc_id` "
+            "must be a runbook doc_id actually returned by a successful "
+            "search_runbooks call earlier this run -- never invent one. The "
+            "proposed_fix is checked against that runbook's Constraints "
+            "section before queueing; a returned status of "
+            "'verification_failed' means the fix was rejected and must be "
+            "revised (or a different citation chosen) before trying again."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "proposed_root_cause": {
+                    "type": "string",
+                    "description": "The root cause you have diagnosed for this ticket, in plain language.",
+                },
+                "proposed_fix": {
+                    "type": "string",
+                    "description": (
+                        "The fix you propose applying, in plain language. Checked "
+                        "against the cited runbook's Constraints before queueing."
+                    ),
+                },
+                "citation_doc_id": {
+                    "type": "string",
+                    "description": (
+                        "The doc_id of the runbook this fix is drawn from -- must "
+                        "be one actually returned by a search_runbooks call this "
+                        "run, not invented."
+                    ),
+                },
+            },
+            "required": ["proposed_root_cause", "proposed_fix", "citation_doc_id"],
+            "additionalProperties": False,
+        },
+    },
+}
+
+TOOL_SCHEMAS = [
+    QUERY_LOGS_SCHEMA,
+    QUERY_METRICS_SCHEMA,
+    SEARCH_RUNBOOKS_SCHEMA,
+    SEARCH_PAST_INCIDENTS_SCHEMA,
+    UPDATE_TICKET_SCHEMA,
+]
 
 # Args every tool function in tools/log_tools.py requires but which are
 # supplied by the executor from TaskState, never by the model — kept out of

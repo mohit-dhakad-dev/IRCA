@@ -19,11 +19,17 @@ from agent.state import TaskState
 from agent.tool_executor import execute_tool_call
 from agent.tool_schemas import TOOL_SCHEMAS
 from tools.fake_data import get_ticket
+from tools.ticket_tools import update_ticket
 
 CONFIDENCE_THRESHOLD = 0.75
 MIN_EVIDENCE_SOURCES = 2
 MAX_NO_NEW_INFO = 2
 RETRY_BACKOFF_SECONDS = 1.0
+
+# The write gate gets at most this many compose->verify round trips before the
+# run is demoted to "escalated" rather than looping indefinitely against a
+# runbook it cannot satisfy.
+MAX_WRITE_ATTEMPTS = 2
 
 # query_logs/query_metrics OBSERVE this incident directly; search_runbooks/
 # search_past_incidents only RETRIEVE knowledge about OTHER incidents and can
@@ -99,6 +105,19 @@ CRITIC_INSTRUCTION = (
     'appears (e.g. "RB-DB-001") — never invented, never a doc_id you do not '
     "see in the digest — and left as an empty list if no runbook "
     "observation supports the hypothesis."
+)
+
+WRITE_COMPOSE_INSTRUCTION = (
+    "You have concluded a diagnosis and it is time to write up the fix. State "
+    "the concrete remediation action for THIS incident in one short "
+    "paragraph, using the wording and units of the cited runbook's Fix and "
+    "Constraints sections. Any numeric value you propose (sizes, counts, "
+    "durations, thresholds, ...) must stay strictly inside the bounds stated "
+    "in that runbook's Constraints section. This text will be automatically "
+    "checked against that runbook's Constraints section and REJECTED if it "
+    "violates any numeric bound, so do not propose a value outside the "
+    "stated range. Reply with plain prose only -- no JSON, no markdown "
+    "fence, no tool calls."
 )
 
 CRITIC_REASK_INSTRUCTION = (
@@ -379,6 +398,158 @@ def _can_resolve(state: TaskState) -> bool:
     )
 
 
+def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
+    """The loop's terminal action for a resolved run.
+
+    This QUEUES a write for human approval -- it cannot itself mutate any
+    ticket. It calls tools.ticket_tools.update_ticket DIRECTLY rather than
+    through execute_tool_call, because the loop is the caller and ticket_id
+    comes from TaskState -- routing it through the model's tool-choice path
+    would reopen the ticket_id-injection hole that TICKET_SCOPED_TOOLS exists
+    to close.
+    """
+    # _can_resolve already guarantees state.hypothesis and state.citations are
+    # both present before the loop reaches "resolved". This is still checked
+    # here as a defensive belt-and-braces path in case that invariant is ever
+    # weakened without updating this function.
+    if not state.hypothesis or not state.citations:
+        state.trajectory.append(
+            {
+                "iteration": state.iteration,
+                "thought": "",
+                "tool_call": None,
+                "observation": {
+                    "error": "Cannot compose a write: no hypothesis or no citation available.",
+                },
+                "hypothesis_after": state.hypothesis,
+            }
+        )
+        state.status = "escalated"
+        return
+
+    citation_doc_id = state.citations[0]
+    last_reason = ""
+
+    for attempt in range(1, MAX_WRITE_ATTEMPTS + 1):
+        compose_messages = list(messages)
+        instruction_parts = [
+            WRITE_COMPOSE_INSTRUCTION,
+            f"Confirmed root cause: {state.hypothesis!r}.",
+            f"Cited runbook doc_id: {citation_doc_id}.",
+        ]
+        if attempt > 1:
+            instruction_parts.append(
+                "Your previous proposed fix was rejected for this reason: "
+                f"{last_reason!r}. Revise the fix so it satisfies that "
+                "constraint."
+            )
+        compose_messages.append(
+            {"role": "user", "content": "\n".join(instruction_parts)}
+        )
+
+        # Retry once on a transient error, exactly matching the act step's
+        # pattern -- this retry is nested INSIDE a single compose attempt and
+        # must not consume one of the MAX_WRITE_ATTEMPTS verification
+        # retries. A transient error followed by success leaves the attempt
+        # budget untouched; only a SECOND error dict in a row is terminal.
+        resp = call_llm_with_tools(compose_messages, [])
+        if isinstance(resp, dict):
+            time.sleep(RETRY_BACKOFF_SECONDS)
+            resp = call_llm_with_tools(compose_messages, [])
+        if isinstance(resp, dict):
+            state.trajectory.append(
+                {
+                    "iteration": state.iteration,
+                    "thought": "",
+                    "tool_call": None,
+                    "observation": {"error": f"LLM call failed: {resp['error']}"},
+                    "hypothesis_after": state.hypothesis,
+                }
+            )
+            state.status = "escalated"
+            return
+
+        compose_text = resp.choices[0].message.content or ""
+        proposed_fix = compose_text.strip()
+        if not proposed_fix:
+            last_reason = "model returned no fix text"
+            state.trajectory.append(
+                {
+                    "iteration": state.iteration,
+                    "thought": compose_text,
+                    "tool_call": {
+                        "name": "update_ticket",
+                        "arguments": {
+                            "proposed_root_cause": state.hypothesis,
+                            "proposed_fix": proposed_fix,
+                            "citation_doc_id": citation_doc_id,
+                        },
+                    },
+                    "observation": {
+                        "status": "error",
+                        "data": {},
+                        "summary": last_reason,
+                    },
+                    "hypothesis_after": state.hypothesis,
+                }
+            )
+            continue
+
+        result = update_ticket(
+            ticket_id=state.ticket_id,
+            proposed_root_cause=state.hypothesis,
+            proposed_fix=proposed_fix,
+            citation_doc_id=citation_doc_id,
+        )
+
+        state.trajectory.append(
+            {
+                "iteration": state.iteration,
+                "thought": compose_text,
+                "tool_call": {
+                    "name": "update_ticket",
+                    "arguments": {
+                        "proposed_root_cause": state.hypothesis,
+                        "proposed_fix": proposed_fix,
+                        "citation_doc_id": citation_doc_id,
+                    },
+                },
+                "observation": result,
+                "hypothesis_after": state.hypothesis,
+            }
+        )
+
+        if result["status"] == "awaiting_approval":
+            state.pending_action_id = result["data"]["action_id"]
+            return
+        if result["status"] == "verification_failed":
+            last_reason = result["data"]["reason"]
+            continue
+        # Any other status (e.g. "error"): treat as a failed attempt.
+        last_reason = result.get("summary", "unknown error")
+
+    # All attempts exhausted without a queued action: demote to escalated. A
+    # proposed fix that violates the cited runbook's own constraints is not a
+    # resolution -- design.md requires a verification_failed to force a
+    # replan rather than be silently dropped, so this run cannot stay
+    # "resolved" with nothing actually queued for approval.
+    state.status = "escalated"
+    state.trajectory.append(
+        {
+            "iteration": state.iteration,
+            "thought": "",
+            "tool_call": None,
+            "observation": {
+                "error": (
+                    f"Write rejected after {MAX_WRITE_ATTEMPTS} attempt(s); "
+                    f"last reason: {last_reason}"
+                ),
+            },
+            "hypothesis_after": state.hypothesis,
+        }
+    )
+
+
 def run_agent_loop(ticket_id: str) -> TaskState:
     ticket = get_ticket(ticket_id)
     if ticket is None:
@@ -421,8 +592,19 @@ def run_agent_loop(ticket_id: str) -> TaskState:
 
     while True:
         # Step 1 — stop checks, at the top of every iteration.
+        #
+        # _can_resolve is decided purely from the loop's own belief state
+        # (confidence/evidence_sources/citations) -- this loop must NEVER
+        # read the ticket's `expected_behavior` field, since that is gold
+        # eval data and reading it here would leak the answer into the run.
         if _can_resolve(state):
             state.status = "resolved"
+            # This is the ONLY place _queue_write_action is called: escalation
+            # exits below are structurally unreachable from here, so an
+            # escalated run never attempts a write. Note _queue_write_action
+            # may itself demote state.status back to "escalated" if the
+            # composed fix fails constraint verification on every attempt.
+            _queue_write_action(state, messages)
             break
         if state.iteration >= state.max_iterations:
             state.status = "escalated"
