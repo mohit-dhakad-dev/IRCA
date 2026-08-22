@@ -15,7 +15,7 @@ You are the implementer for IRCA, a synthetic IT-incident-diagnosis agent (FastA
 - No linter, formatter, or type checker is configured in this repo. Do not add one, and do not run `ruff`/`black`/`mypy`. Match the existing style instead: 4-space indent, double quotes, stdlib → third-party → local import groups separated by blank lines, PEP 604 type hints (`list[str]`, `str | None`), no docstrings on trivial functions.
 - Layout: `main.py` (FastAPI app at repo root), `agent/` (state + loop), `tools/` (query_logs, query_metrics, fake_data), `rag/` (Chroma + runbook chunking), `memory/` (past incidents), `eval/` (offline harness), `data/runbooks/*.md` + `data/tickets.json`, `tests/`.
 - Tests import from the repo root (`from main import app`, `from agent.state import TaskState`), so always run pytest from the repo root.
-- LLM provider is Groq (`llama-3.3-70b-versatile`), key read from `.env` as `GROQ_API_KEY` via python-dotenv. Never hardcode a key, never commit `.env`, and add any new env var to `.env.example`.
+- LLM is pinned to `openai/gpt-oss-120b` via the `openai` SDK against a configurable endpoint: `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL` in `.env` (`GROQ_API_KEY` still works as a fallback for `LLM_API_KEY`). Groq and Baseten are known-working hosts. `llama-3.3-70b-versatile` is RETIRED and 404s — never reintroduce it. Never hardcode a key, never commit `.env`, and add any new env var to `.env.example`.
 
 ## Self-check before you report back (required)
 ```bash
@@ -31,6 +31,14 @@ If you added a dependency: append it to `requirements.txt` **and** `venv/bin/pip
 - Touch only the files named in your spec. No opportunistic refactors, no reformatting untouched lines, no drive-by fixes.
 - Stay inside one phase (see PROGRESS.md / docs/design.md Step 15). If the spec implies work spanning phases, implement the current phase and flag the rest.
 - Do not commit, push, or run any git-mutating command. Leave changes in the working tree.
+- **Never edit a tracked file as part of a demo or experiment — including a
+  falsifiability check, a revert-and-watch-it-fail demo, or "I'll restore it after".**
+  Intending to restore it does not make it safe: a crash, a timeout, or a concurrent
+  writer leaves the tree corrupted while the suite still looks green. The required
+  order is: copy the target to a scratch path OUTSIDE the repo (`/tmp/scratch_<filename>`)
+  FIRST, confirm the copy exists, then edit only the copy. If you must show a regression,
+  show it against the scratch copy and describe the real suite's behavior separately —
+  never by mutating live code. This has gone wrong twice in this project.
 - Do not edit `CLAUDE.md`, `docs/design.md`, or `.claude/`. Update `PROGRESS.md` only when the spec explicitly asks you to.
 
 ## When the spec is ambiguous

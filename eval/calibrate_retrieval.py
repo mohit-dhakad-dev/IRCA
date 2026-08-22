@@ -51,19 +51,37 @@ from rag.retrieve import search_runbooks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TICKETS_PATH = REPO_ROOT / "data" / "tickets.json"
+RUNBOOKS_DIR = REPO_ROOT / "data" / "runbooks"
+PAST_INCIDENTS_PATH = REPO_ROOT / "data" / "past_incidents.json"
 
 WIDE_TOP_K = 10
 MEMORY_WIDE_TOP_K = 8
 THRESHOLDS_TO_SWEEP = [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
+
+# Used only to pick the qualitative word ("small" vs no qualifier) for the
+# VERDICT block's opening sentence -- not a statistical claim about when a
+# sample becomes trustworthy. Below this many tickets, call the sample small;
+# at or above it, just state the measured counts and let the reader judge.
+SMALL_SAMPLE_TICKET_COUNT = 30
 
 # Watched cases: tickets whose retrieval behavior is known and recorded here
 # so a regression (or drift) is loud and unmissable, not buried in the
 # aggregate table. Add more entries as more cases are pinned down -- the
 # printing code below does not need to change.
 #
-# T015 (runbooks) is a CONFIDENT WRONG retrieval: its top-1 score sits inside
-# the normal correct-match score range, so no value of SCORE_THRESHOLD can
-# ever reject it.
+# T015 and T018 (runbooks) are two INDEPENDENT instances of the same
+# DB/network confusion: both retrieve RB-DB-001 as top-1 while their gold
+# RB-NETWORK-001 sits at rank 4. Two instances with the same wrong doc, the
+# same gold doc, and the same rank make this a reproducible property of the
+# corpus -- ingress-saturation and pool-exhaustion prose embed close together
+# -- not an outlier. They differ in what the threshold can do about it:
+#   T015 scores 0.5739, INSIDE the normal correct-match range, so no value of
+#     SCORE_THRESHOLD rejects it.
+#   T018 scores 0.4994, so the live 0.5 gate does reject it -- but gold is
+#     still at rank 4, i.e. outside top-3, so no threshold SURFACES the right
+#     runbook either. Threshold tuning changes which failure you get, not
+#     whether you get one.
+# T018 is also an "easy" ticket, so this is not confined to hard cases.
 #
 # T002 (memory) is the mirror-image failure: a CORRECT retrieval whose top-1
 # score (0.3244) sits far BELOW even the lowered live memory gate (0.40), so
@@ -82,6 +100,27 @@ WATCHED_CASES = {
         "observed_wrong_top1_doc_id": "RB-DB-001",
         "observed_top1_score": 0.5739,
         "observed_rank_of_gold": 4,
+        "why": (
+            "a confidently WRONG retrieval -- its top-1 score lies INSIDE the normal\n"
+            "  correct-match range (max wrong 0.5739 vs correct 0.3385-0.7992), so NO value of\n"
+            "  SCORE_THRESHOLD can reject it. Raising the threshold is not a fix for this case.\n"
+            "  Paired with T018: same wrong doc, same gold doc, same rank-4 miss."
+        ),
+    },
+    "T018": {
+        "layer": "runbooks",
+        "gold_doc_id": "RB-NETWORK-001",
+        "observed_wrong_top1_doc_id": "RB-DB-001",
+        "observed_top1_score": 0.4994,
+        "observed_rank_of_gold": 4,
+        "why": (
+            "the SECOND instance of the same DB/network confusion as T015, which is what\n"
+            "  makes the pattern reproducible rather than an outlier -- and it is an EASY ticket,\n"
+            "  so the failure is not confined to deliberately hard cases. Unlike T015 the live 0.5\n"
+            "  gate DOES reject this one (0.4994), but gold RB-NETWORK-001 is at rank 4 -- outside\n"
+            "  top-3 -- so no threshold surfaces the right runbook either. The >=2-independent-\n"
+            "  sources rule, not the gate, is what defends against both."
+        ),
     },
     "T002": {
         "layer": "memory",
@@ -163,6 +202,109 @@ def histogram(values: list[float], bucket: float = 0.1, width: int = 100) -> lis
     return lines
 
 
+def compute_threshold_sweep(rows: list[dict], thresholds: list[float]) -> list[dict]:
+    """Sweep `thresholds` over `rows`' top-1 scores, returning one dict per
+    threshold: admitted/admitted_correct/admitted_wrong/correct_rejected
+    counts and admitted-set precision. Shared by the printed sweep table and
+    the VERDICT block, so both read the same numbers rather than
+    recomputing (and potentially drifting from each other)."""
+    sweep = []
+    for t in thresholds:
+        admitted = [r for r in rows if r["top1_score"] >= t]
+        admitted_correct = [r for r in admitted if r["top1_correct"]]
+        admitted_wrong = [r for r in admitted if not r["top1_correct"]]
+        correct_rejected = [r for r in rows if r["top1_correct"] and r["top1_score"] < t]
+        precision = len(admitted_correct) / len(admitted) if admitted else None
+        sweep.append(
+            {
+                "threshold": t,
+                "admitted": len(admitted),
+                "admitted_correct": len(admitted_correct),
+                "admitted_wrong": len(admitted_wrong),
+                "correct_rejected": len(correct_rejected),
+                "precision": precision,
+            }
+        )
+    return sweep
+
+
+def sweep_row_at(sweep: list[dict], threshold: float) -> dict | None:
+    """The sweep row whose threshold matches `threshold` (within float
+    tolerance), or None if that exact value was not swept."""
+    for row in sweep:
+        if abs(row["threshold"] - threshold) < 1e-9:
+            return row
+    return None
+
+
+# A sweep row admitting fewer than this many matches is statistically
+# degenerate: its precision is dominated by one or two rows and swings wildly.
+# Measured example -- the memory layer's 0.65 row admits a single match, giving
+# precision 1.0, which an endpoint-to-endpoint comparison would read as "precision
+# rises" even though precision is flat across every threshold anyone would ship.
+MIN_ADMITTED_FOR_TREND = 5
+
+
+def precision_span(sweep: list[dict]) -> tuple[float, float] | None:
+    """Min and max admitted-set precision across the swept range, ignoring
+    degenerate rows (see MIN_ADMITTED_FOR_TREND). None if nothing qualifies."""
+    usable = [
+        row["precision"]
+        for row in sweep
+        if row["precision"] is not None and row["admitted"] >= MIN_ADMITTED_FOR_TREND
+    ]
+    if not usable:
+        return None
+    return min(usable), max(usable)
+
+
+def marginal_step(sweep: list[dict], threshold: float) -> dict | None:
+    """The cost/benefit of raising the gate one swept step above `threshold`:
+    the precision change and how many additional correct matches it rejects.
+
+    This replaces a qualitative "knee"/"flat" label. The label was a judgement
+    call asserted by this script; these are numbers measured from the run, and
+    the reader can draw the conclusion. Returns None if `threshold` is not in
+    the sweep, is the top row, or either row is degenerate."""
+    for i, row in enumerate(sweep[:-1]):
+        if abs(row["threshold"] - threshold) < 1e-9:
+            nxt = sweep[i + 1]
+            if (
+                row["precision"] is None
+                or nxt["precision"] is None
+                or nxt["admitted"] < MIN_ADMITTED_FOR_TREND
+            ):
+                return None
+            return {
+                "from": row["threshold"],
+                "to": nxt["threshold"],
+                "precision_from": row["precision"],
+                "precision_to": nxt["precision"],
+                "extra_correct_rejected": nxt["correct_rejected"] - row["correct_rejected"],
+            }
+    return None
+
+
+def format_gate_tradeoff(sweep: list[dict], threshold: float) -> list[str]:
+    """Lines describing where the live gate sits, entirely computed."""
+    lines: list[str] = []
+    span = precision_span(sweep)
+    if span is not None:
+        lines.append(
+            f"Across the swept range, admitted-set precision spans {span[0]:.3f}-{span[1]:.3f} "
+            f"(rows admitting fewer than {MIN_ADMITTED_FOR_TREND} matches excluded as degenerate)."
+        )
+    step = marginal_step(sweep, threshold)
+    if step is not None:
+        delta = step["precision_to"] - step["precision_from"]
+        lines.append(
+            f"Raising the gate one step, {step['from']:.2f} -> {step['to']:.2f}, moves precision "
+            f"{step['precision_from']:.3f} -> {step['precision_to']:.3f} ({delta:+.3f}) at the cost "
+            f"of rejecting {step['extra_correct_rejected']} more correct match(es)."
+        )
+    return lines
+
+
 def fmt_stats(label: str, values: list[float]) -> str:
     if not values:
         return f"  {label}: (no tickets in this group)"
@@ -193,7 +335,7 @@ def print_watched_cases(runbook_rows: list[dict], memory_rows: list[dict]) -> No
     print("=" * 100)
     print(
         "\nThese tickets have known, previously-investigated retrieval behavior recorded in\n"
-        "WATCHED_CASES (this file), one per retrieval layer. Each run re-measures them and\n"
+        "WATCHED_CASES (this file). Each run re-measures them and\n"
         "reports CHANGED/UNCHANGED against the recorded values -- a CHANGED verdict means the\n"
         "corpus, chunking, or embedding model likely changed, and the recorded values need a\n"
         "deliberate update, not a silent one."
@@ -248,9 +390,7 @@ def print_watched_cases(runbook_rows: list[dict], memory_rows: list[dict]) -> No
                 print("\n  UNCHANGED -- matches recorded expectation within tolerance.")
 
             print(
-                "\n  WHY THIS IS WATCHED: this is a confidently WRONG retrieval -- its top-1 score\n"
-                "  lies INSIDE the normal correct-match score range, not below it. Therefore NO value\n"
-                "  of SCORE_THRESHOLD can reject it: raising the threshold is not a fix for this case.\n"
+                f"\n  WHY THIS IS WATCHED: {recorded['why']}\n"
                 "  See docs/design.md, 'RAG + Memory — Retrieval Contract (Session 6 spec)' for the\n"
                 "  fuller note."
             )
@@ -448,14 +588,13 @@ def print_runbook_section(rows: list[dict], top_k: int) -> dict:
     else:
         print("\n  >>> One of the two groups is empty; separation is not meaningful here.")
 
+    sweep = compute_threshold_sweep(rows, THRESHOLDS_TO_SWEEP)
     print("\nThreshold sweep (status=ok admission, top-1 per ticket):")
     print(f"{'thresh':<10}{'admitted':<12}{'admitted_correct':<20}{'correct_wrongly_rejected':<26}")
-    for t in THRESHOLDS_TO_SWEEP:
-        admitted = [r for r in rows if r["top1_score"] >= t]
-        admitted_correct = [r for r in admitted if r["top1_correct"]]
-        correct_rejected = [r for r in rows if r["top1_correct"] and r["top1_score"] < t]
+    for row in sweep:
         print(
-            f"{t:<10.2f}{len(admitted):<12}{len(admitted_correct):<20}{len(correct_rejected):<26}"
+            f"{row['threshold']:<10.2f}{row['admitted']:<12}{row['admitted_correct']:<20}"
+            f"{row['correct_rejected']:<26}"
         )
 
     n_no_confident = sum(1 for r in rows if r["status"] == "no_confident_match")
@@ -472,6 +611,7 @@ def print_runbook_section(rows: list[dict], top_k: int) -> dict:
         "wrong_scores": wrong_scores,
         "overlap": overlap,
         "n_no_confident": n_no_confident,
+        "sweep": sweep,
     }
 
 
@@ -536,14 +676,13 @@ def print_memory_section(rows: list[dict], top_k: int) -> dict:
     else:
         print("\n  >>> One of the two groups is empty; separation is not meaningful here.")
 
+    sweep = compute_threshold_sweep(rows, THRESHOLDS_TO_SWEEP)
     print("\nThreshold sweep (status=ok admission, top-1 per ticket):")
     print(f"{'thresh':<10}{'admitted':<12}{'admitted_correct':<20}{'correct_wrongly_rejected':<26}")
-    for t in THRESHOLDS_TO_SWEEP:
-        admitted = [r for r in rows if r["top1_score"] >= t]
-        admitted_correct = [r for r in admitted if r["top1_correct"]]
-        correct_rejected = [r for r in rows if r["top1_correct"] and r["top1_score"] < t]
+    for row in sweep:
         print(
-            f"{t:<10.2f}{len(admitted):<12}{len(admitted_correct):<20}{len(correct_rejected):<26}"
+            f"{row['threshold']:<10.2f}{row['admitted']:<12}{row['admitted_correct']:<20}"
+            f"{row['correct_rejected']:<26}"
         )
 
     n_no_confident = sum(1 for r in rows if r["status"] == "no_confident_match")
@@ -560,6 +699,7 @@ def print_memory_section(rows: list[dict], top_k: int) -> dict:
         "wrong_scores": wrong_scores,
         "overlap": overlap,
         "n_no_confident": n_no_confident,
+        "sweep": sweep,
     }
 
 
@@ -608,13 +748,34 @@ def print_side_by_side(runbook_stats: dict, memory_stats: dict) -> None:
         f"{str(memory_stats['n_no_confident']) + '/' + str(memory_stats['n']):<30}"
     )
 
+    # The cross-mirror comparison below is computed from this run, not asserted: the
+    # figures move whenever the ticket set or either corpus changes, and a stale
+    # literal here would contradict the table printed immediately above it.
+    mirror_at = RUNBOOK_SCORE_THRESHOLD
+    rb_mirror = sweep_row_at(runbook_stats["sweep"], mirror_at)
+    mem_mirror = sweep_row_at(memory_stats["sweep"], mirror_at)
+    if rb_mirror is not None and mem_mirror is not None:
+        rb_correct = len(runbook_stats["correct_scores"])
+        mem_correct = len(memory_stats["correct_scores"])
+        mirror_line = (
+            f"  at {mirror_at}, memory rejects {mem_mirror['correct_rejected']} of {mem_correct} "
+            f"correct top-1 matches, against {rb_mirror['correct_rejected']} of {rb_correct} "
+            "on runbooks."
+        )
+    else:
+        mirror_line = (
+            f"  (the mirrored value {mirror_at} is not one of the swept thresholds this run, "
+            "so the comparison cannot be computed)."
+        )
+
     print(
         "\nThe two layers' CORRECT top-1 scores sit in structurally different ranges: runbook\n"
         "matches score far higher than memory matches. The two layers now run independent gates\n"
         f"({RUNBOOK_SCORE_THRESHOLD} for runbooks, {MEMORY_SCORE_THRESHOLD} for memory) because\n"
-        "mirroring one layer's value onto the other was measured to reject correct matches: at\n"
-        "0.5, memory rejected 4 of 13 correct top-1 matches, against 0/15 on runbooks. This is\n"
-        "not noise -- a threshold calibrated on one collection does NOT transfer to the other.\n"
+        "mirroring one layer's value onto the other was measured to reject correct matches:\n"
+        f"{mirror_line}\n"
+        "This is not noise -- a threshold calibrated on one collection does NOT transfer to the\n"
+        "other.\n"
         "\n"
         "Likely reason: runbook chunks are long prose sections with substantial topical overlap\n"
         "to a ticket's wording, so a correct match tends to score high. Incident symptom_summary\n"
@@ -652,7 +813,8 @@ def main(top_k: int, rebuild: bool, layer: str) -> None:
     print(f"Layer(s) calibrated this run: {layer}")
 
     tickets = json.loads(TICKETS_PATH.read_text())
-    assert len(tickets) == 15, f"expected 15 tickets, found {len(tickets)}"
+    assert tickets, "data/tickets.json is empty"
+    print(f"Tickets loaded: {len(tickets)}")
 
     runbook_rows: list[dict] = []
     memory_rows: list[dict] = []
@@ -681,25 +843,52 @@ def main(top_k: int, rebuild: bool, layer: str) -> None:
     print("\n" + "=" * 100)
     print("VERDICT")
     print("=" * 100)
+
+    n_runbook_files = len(list(RUNBOOKS_DIR.glob("*.md")))
+    n_tickets_with_gold_root_cause = sum(1 for t in tickets if t.get("gold_root_cause"))
+    past_incidents = (
+        json.loads(PAST_INCIDENTS_PATH.read_text()) if PAST_INCIDENTS_PATH.exists() else []
+    )
+    n_past_incidents = len(past_incidents)
+    n_distinct_root_causes = len({i["resolved_root_cause"] for i in past_incidents})
+
+    size_word = (
+        "a small" if len(tickets) < SMALL_SAMPLE_TICKET_COUNT else "a measured"
+    )
     print(
-        "\nSample sizes are small (15 tickets over 6 runbooks; 13 tickets with a gold root cause\n"
-        "over 8 incidents / 6 root causes). This is far too small a sample to justify moving\n"
-        "either SCORE_THRESHOLD to any new precise-sounding value -- any such number would be\n"
-        "overfit to these data points and could not be trusted to generalize. What follows is\n"
-        "only what this specific run's numbers show, not a recommendation to hard-code a new\n"
-        "constant from them."
+        f"\nThis run measured {len(tickets)} tickets over {n_runbook_files} runbooks; "
+        f"{n_tickets_with_gold_root_cause} tickets with a gold root cause over "
+        f"{n_past_incidents} incidents / {n_distinct_root_causes} root causes. That is {size_word}\n"
+        "sample -- far too small to justify moving either SCORE_THRESHOLD to any new\n"
+        "precise-sounding value; any such number would be overfit to these data points and\n"
+        "could not be trusted to generalize. What follows is only what this specific run's\n"
+        "numbers show, not a recommendation to hard-code a new constant from them."
     )
 
     if do_runbooks:
         print("\n--- Runbooks (rag/retrieve.py) ---")
+        runbook_sweep = runbook_stats["sweep"]
+        live_row = sweep_row_at(runbook_sweep, RUNBOOK_SCORE_THRESHOLD)
+        if live_row is not None:
+            print(
+                f"At the live {RUNBOOK_SCORE_THRESHOLD} gate: {live_row['admitted_wrong']} wrong "
+                f"top-1 match(es) admitted, {live_row['correct_rejected']} correct top-1 match(es) "
+                f"rejected, admitted-set precision {live_row['precision']:.3f}."
+            )
+            for line in format_gate_tradeoff(runbook_sweep, RUNBOOK_SCORE_THRESHOLD):
+                print(line)
+        else:
+            print(
+                f"The live {RUNBOOK_SCORE_THRESHOLD} gate is not one of the swept threshold "
+                "values, so no live-gate row is available this run."
+            )
         if runbook_stats["overlap"]:
             print(
                 "The CORRECT and WRONG top-1 score distributions OVERLAP in this sample, which\n"
                 "means no single threshold value can perfectly separate confident-correct\n"
                 f"retrievals from confident-wrong ones here. {RUNBOOK_SCORE_THRESHOLD} is therefore\n"
                 "NOT cleanly validated by this data -- it is an assumption that happens to not be\n"
-                "contradicted (or is contradicted, depending on the sweep numbers above), not a\n"
-                "value derived from measurement."
+                "contradicted by the sweep numbers above, not a value derived from measurement."
             )
         else:
             print(
@@ -711,18 +900,47 @@ def main(top_k: int, rebuild: bool, layer: str) -> None:
 
     if do_memory:
         print("\n--- Memory (memory/store.py) ---")
+        memory_sweep = memory_stats["sweep"]
+        live_row = sweep_row_at(memory_sweep, MEMORY_SCORE_THRESHOLD)
+        if live_row is not None:
+            print(
+                f"At the live {MEMORY_SCORE_THRESHOLD} gate: {live_row['admitted_wrong']} wrong "
+                f"top-1 match(es) admitted, {live_row['correct_rejected']} correct top-1 match(es) "
+                f"rejected, admitted-set precision {live_row['precision']:.3f}."
+            )
+            for line in format_gate_tradeoff(memory_sweep, MEMORY_SCORE_THRESHOLD):
+                print(line)
+        max_wrong = max(memory_stats["wrong_scores"], default=None)
+        correct_median = (
+            statistics.median(memory_stats["correct_scores"])
+            if memory_stats["correct_scores"]
+            else None
+        )
+        if max_wrong is not None and correct_median is not None and max_wrong > correct_median:
+            wrong_above_median_note = (
+                f"a wrong top-1 at {max_wrong:.4f} sits above the correct median of "
+                f"{correct_median:.4f} in this run"
+            )
+        elif max_wrong is not None and correct_median is not None:
+            wrong_above_median_note = (
+                f"in this run the max wrong top-1 ({max_wrong:.4f}) does NOT exceed the correct "
+                f"median ({correct_median:.4f})"
+            )
+        else:
+            wrong_above_median_note = (
+                "one of the wrong/correct score groups is empty this run, so no "
+                "wrong-vs-median comparison is available"
+            )
         print(
             f"The live {MEMORY_SCORE_THRESHOLD} gate is already lower than the runbook layer's\n"
             f"{RUNBOOK_SCORE_THRESHOLD} precisely because mirroring {RUNBOOK_SCORE_THRESHOLD} onto\n"
             "memory was measured to reject several correct top-1 matches (status=no_confident_match)\n"
             "whose retrieved incident's resolved_root_cause is exactly the ticket's gold_root_cause --\n"
             "see the CORRECT vs WRONG score separation and the rejected-by-live-gate count above.\n"
-            "But CORRECT and WRONG score ranges overlap here too -- a WRONG top-1 can score above the\n"
-            "CORRECT median (e.g. a wrong top-1 at 0.5981 sitting above a correct median of 0.5719 in\n"
-            "the reference measurement this script's threshold sweep should reproduce). So no\n"
-            "threshold cleanly separates correct from wrong on this collection either; picking a\n"
-            "lower cutoff trades false rejections for false admissions rather than eliminating the\n"
-            "tradeoff.\n"
+            f"But CORRECT and WRONG score ranges overlap here too -- {wrong_above_median_note}.\n"
+            "So no threshold cleanly separates correct from wrong on this collection either;\n"
+            "picking a lower cutoff trades false rejections for false admissions rather than\n"
+            "eliminating the tradeoff.\n"
             "\n"
             "The practical implication is not 'pick a better number' -- it is that the gate alone\n"
             "cannot be the safeguard against a wrong memory match. The real safeguard is the\n"

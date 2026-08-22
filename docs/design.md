@@ -145,15 +145,39 @@ Single-agent, and I say so explicitly: one agent with a reason-act loop is suffi
 - Return {doc_id, section, text, score}. If top score < 0.5, return status="no_confident_match" 
   instead of forcing a weak result — the agent must escalate, not fabricate a fix from a bad match.
 
-**Empirically observed:** top-1 retrieval can be confidently wrong (T015: RB-DB-001 scored 0.57,
-inside the normal correct-match range, while gold RB-NETWORK-001 ranked 4th). This is why
-search_runbooks output is treated as a hypothesis input to the critic, never as ground truth on
-its own — see loop stop conditions (>=2 independent evidence sources).
+**Empirically observed — a REPRODUCIBLE failure mode, not an outlier.** Top-1 retrieval can be
+confidently wrong, and the DB/network confusion has now been confirmed on two independent
+tickets:
+- **T015** (ambiguous): RB-DB-001 scored 0.5739, inside the normal correct-match range, while
+  gold RB-NETWORK-001 ranked 4th.
+- **T018** (easy): RB-DB-001 scored 0.4994, again with gold RB-NETWORK-001 at rank 4.
 
-**0.5 threshold** has ~0.05 margin against the lowest correct-match score (0.5511) observed on
-the current 15-ticket set. Re-run eval/calibrate_retrieval.py once the ticket set expands to
-50-80 (Session 2's deferred step) to confirm this margin holds at scale before treating 0.5 as
-final.
+Two instances with the same wrong runbook, the same gold runbook, and the same rank-4 miss make
+this a characteristic of the corpus — ingress-saturation and pool-exhaustion symptom prose embed
+close together — rather than a one-off. That T018 is an *easy* ticket matters: the failure is not
+confined to deliberately hard cases.
+
+This is the central justification for the loop's >=2-independent-sources rule. A single
+high-scoring chunk is not evidence; it is a hypothesis the critic must disconfirm against this
+incident's own logs and metrics. search_runbooks output is therefore never ground truth on its
+own — see loop stop conditions.
+
+Escalation here depends on `_can_resolve` requiring a credited `search_runbooks` specifically —
+memory alone would credit T050 at 0.45.
+
+**0.5 threshold — re-calibrated on 63 tickets (Session 2's deferred step, now done).** These
+figures are a snapshot; `eval/calibrate_retrieval.py` computes them live and is the authority if
+they ever disagree. Correct
+top-1 scores span 0.3385-0.7992 (n=56); wrong top-1 scores span 0.2048-0.5739 (n=7). The ranges
+OVERLAP, so **no single threshold separates correct from wrong** — the 15-ticket finding survived
+a 4x larger set. The threshold sweep shows 0.5 admitting 1 wrong top-1 and rejecting 4 correct
+ones, precision 0.981 — and raising it one step to 0.55 *lowers* precision to 0.980 while
+rejecting 4 more correct matches, so 0.5 is where the curve stops paying. Every lower value
+admits more confident-wrong retrievals (0.45 admits 2, 0.40 admits 4); 0.60 buys precision 1.000
+only by rejecting 15 of 56 correct matches. 0.5 is therefore RETAINED — chosen
+on measured tradeoff rather than assumption — but it remains a coverage/precision knob, not a
+correctness guarantee. Neither T015 nor T018 can be rejected by any threshold; only the
+independent-verification rule catches them.
 
 **search_past_incidents(query: str) -> top-3 past incidents**
 - Return {incident_id, symptom_summary, resolved_root_cause, resolution, similarity_score}.

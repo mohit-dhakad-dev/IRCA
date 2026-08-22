@@ -11,13 +11,14 @@ def test_ticket_dataset_matches_schema_and_runbooks():
     assert TICKETS_PATH.exists(), "tickets dataset file is missing"
 
     tickets = json.loads(TICKETS_PATH.read_text())
-    assert len(tickets) == 15
+    assert len(tickets) == 63
 
     categories = {
-        "easy": 5,
-        "multi_step": 5,
-        "tool_heavy": 3,
-        "ambiguous": 2,
+        "easy": 15,
+        "multi_step": 20,
+        "tool_heavy": 10,
+        "rag_heavy": 8,
+        "ambiguous": 10,
     }
     actual = {}
     for ticket in tickets:
@@ -53,8 +54,10 @@ def test_ticket_dataset_matches_schema_and_runbooks():
             assert ticket["expected_behavior"] == "escalate"
             assert ticket["gold_root_cause"] is None
         else:
-            assert ticket["expected_behavior"] == "resolve_with_approval"
+            assert ticket["expected_behavior"] in {"resolve_with_approval", "escalate"}
+            if ticket["expected_behavior"] == "escalate":
+                assert ticket["category"] == "rag_heavy"
             assert ticket["gold_root_cause"] in runbook_roots
             assert ticket["gold_runbook_id"] in runbook_files
 
-    assert sum(1 for t in tickets if t["category"] == "ambiguous") == 2
+    assert sum(1 for t in tickets if t["category"] == "ambiguous") == 10
