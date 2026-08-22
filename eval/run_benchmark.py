@@ -9,12 +9,24 @@ ticket, since run_agent_loop loops). It costs real tokens and real money, and
 is therefore gated behind --live, exactly like pytest.ini's `-m "not live"`
 convention gates live tests behind an explicit opt-in.
 
+Before running any ticket, any *.json result files already sitting in the
+output dir (left over from a previous sweep) are MOVED -- not copied -- into
+eval/results/runs/{UTC timestamp}/. This is deliberate: if stale files were
+left in place, a later `--subset 5` run would overwrite only 5 of the files
+in a 63-ticket out dir, silently leaving a mix of two different sweeps that
+eval/report.py (Part B) would then score as though it were a single run.
+Moving guarantees the raw dir always holds exactly one sweep's output at a
+time, and nothing is lost -- it's archived, not deleted. Use --no-archive to
+skip this when iterating cheaply and repeated overwrites in the same dir are
+fine.
+
 Usage (from repo root, using the repo's venv):
 
     venv/bin/python -m eval.run_benchmark --live
     venv/bin/python -m eval.run_benchmark --live --subset 5
     venv/bin/python -m eval.run_benchmark --live --tickets T001,T009
     venv/bin/python -m eval.run_benchmark --live --out eval/results/raw
+    venv/bin/python -m eval.run_benchmark --live --no-archive
 
 Flags:
     --live         REQUIRED. Without it, the script refuses to run (see
@@ -26,6 +38,9 @@ Flags:
                    "T001,T009". Mutually exclusive with --subset.
     --out DIR      Output directory for the per-ticket result files.
                    Default: eval/results/raw. Created if missing.
+    --no-archive   Skip archiving pre-existing *.json files in the out dir
+                   before this sweep. Off by default -- archiving is the
+                   safe default; this is only for cheap iteration.
 
 Output: one file per ticket at {out}/{ticket_id}.json (pretty-printed,
 indent=2). Tickets are run SEQUENTIALLY and each file is written immediately
@@ -48,6 +63,7 @@ import argparse
 import contextlib
 import json
 import os
+import shutil
 import sys
 import time
 import traceback
@@ -59,6 +75,7 @@ import agent.orchestrator as orchestrator
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TICKETS_PATH = REPO_ROOT / "data" / "tickets.json"
 DEFAULT_OUT_DIR = REPO_ROOT / "eval" / "results" / "raw"
+ARCHIVE_ROOT = REPO_ROOT / "eval" / "results" / "runs"
 
 TICKET_DENORM_FIELDS = [
     "category",
@@ -228,6 +245,93 @@ def run_one(ticket: dict, out_dir: Path) -> dict:
     }
 
 
+class ArchiveError(RuntimeError):
+    """Raised when archiving a previous sweep fails partway through.
+
+    A failed archive must never fall through into a new sweep over a
+    half-cleared (or half-archived) out_dir -- that is exactly the mixed-
+    sweep state this feature exists to prevent. Callers must abort the run
+    with a non-zero exit on this error, before any ticket executes.
+    """
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _make_fresh_archive_dir(archive_root: Path, timestamp: str) -> Path:
+    """Create and return a provably fresh archive directory for this sweep.
+
+    mkdir(parents=True) WITHOUT exist_ok is the freshness check: if the
+    second-resolution timestamp collides with a directory that already
+    exists -- whether from another archive operation in the same second or
+    from anything else that happened to create that path -- FileExistsError
+    is raised and we disambiguate with a "-2", "-3", ... suffix until a
+    genuinely new directory is created. This is what makes the "nothing is
+    ever overwritten" guarantee hold; padding the timestamp with
+    microseconds would narrow the collision window but not eliminate it.
+    """
+    suffix = 1
+    while True:
+        candidate = archive_root / (timestamp if suffix == 1 else f"{timestamp}-{suffix}")
+        try:
+            candidate.mkdir(parents=True)
+        except FileExistsError:
+            suffix += 1
+            continue
+        return candidate
+
+
+def _archive_previous_sweep(out_dir: Path, archive_root: Path | None = None) -> None:
+    """Move any pre-existing *.json result files out of out_dir before a new
+    sweep starts.
+
+    MOVE, deliberately, not copy: if stale files from a previous sweep were
+    left behind, a later run over a smaller --subset/--tickets selection
+    would overwrite only some of the files already in out_dir, leaving a
+    silent mix of two different sweeps that looks like one to a later
+    reader. Moving guarantees out_dir always holds exactly one sweep's
+    output, with nothing lost -- the old files are archived, not deleted.
+
+    Only *.json files are archived; .gitkeep and any other dotfiles are left
+    in place (Path.glob("*.json") does not match dotfile names, since "*"
+    does not match a leading dot).
+
+    If a move fails partway through, this stops immediately, reports which
+    files were already moved and which remain (with the destination dir
+    path, so nothing is orphaned silently), and raises ArchiveError. It does
+    NOT attempt to move the remaining files by any other means and does NOT
+    let the sweep proceed -- the caller must abort.
+    """
+    stale = sorted(out_dir.glob("*.json"))
+    if not stale:
+        return
+
+    if archive_root is None:
+        archive_root = ARCHIVE_ROOT
+
+    timestamp = _utc_timestamp()
+    dest_dir = _make_fresh_archive_dir(archive_root, timestamp)
+
+    moved = []
+    for index, path in enumerate(stale):
+        try:
+            shutil.move(str(path), str(dest_dir / path.name))
+        except OSError as exc:
+            remaining = stale[index:]
+            print(
+                f"Archive failed while moving {path} to {dest_dir}: {exc}\n"
+                f"  moved ({len(moved)}): {[p.name for p in moved]}\n"
+                f"  remaining in {out_dir} ({len(remaining)}): {[p.name for p in remaining]}\n"
+                f"  archive dir: {dest_dir}",
+                file=sys.stderr,
+            )
+            raise ArchiveError(f"failed to archive {path} to {dest_dir}: {exc}") from exc
+        moved.append(path)
+
+    print(f"Archived {len(stale)} file(s) from a previous sweep to {dest_dir}", file=sys.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run the agent loop over data/tickets.json and write raw "
@@ -250,6 +354,11 @@ def main(argv: list[str] | None = None) -> int:
         type=str,
         default=str(DEFAULT_OUT_DIR),
         help="Output directory for per-ticket result files (default: eval/results/raw).",
+    )
+    parser.add_argument(
+        "--no-archive",
+        action="store_true",
+        help="Skip archiving pre-existing *.json files in the out dir before this sweep.",
     )
     args = parser.parse_args(argv)
 
@@ -281,6 +390,13 @@ def main(argv: list[str] | None = None) -> int:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if not args.no_archive:
+        try:
+            _archive_previous_sweep(out_dir)
+        except ArchiveError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
 
     total = len(selected)
     n_crashed = 0

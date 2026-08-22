@@ -198,3 +198,187 @@ def test_progress_line_reports_crashed_status(tmp_path, monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "status=crashed" in captured.err
     assert "status=done" not in captured.err
+
+
+def test_archives_previous_sweep_before_new_run(tmp_path, monkeypatch, capsys):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+
+    stale_content = {"stale": True, "ticket_id": "T099"}
+    (out_dir / "T099.json").write_text(json.dumps(stale_content))
+    (out_dir / ".gitkeep").write_text("")
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+    rc = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(out_dir)])
+    assert rc == 0
+
+    # out_dir now contains only the new sweep's file (plus .gitkeep, untouched).
+    files = sorted(p.name for p in out_dir.iterdir())
+    assert files == [".gitkeep", "T001.json"]
+
+    # exactly one archive subdirectory was created, holding the old file
+    # with its original content intact.
+    archive_dirs = list(archive_root.iterdir())
+    assert len(archive_dirs) == 1
+    archived_files = list(archive_dirs[0].iterdir())
+    assert [p.name for p in archived_files] == ["T099.json"]
+    assert json.loads(archived_files[0].read_text()) == stale_content
+
+    captured = capsys.readouterr()
+    assert "Archived 1 file(s)" in captured.err
+    assert str(archive_dirs[0]) in captured.err
+
+
+def test_gitkeep_not_archived(tmp_path, monkeypatch):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+    (out_dir / ".gitkeep").write_text("")
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+    rc = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(out_dir)])
+    assert rc == 0
+
+    assert (out_dir / ".gitkeep").exists()
+    # no stale json files existed, so no archive dir should have been made
+    assert not archive_root.exists()
+
+
+def test_no_archive_flag_leaves_stale_files_in_place(tmp_path, monkeypatch):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+
+    stale_content = {"stale": True, "ticket_id": "T002"}
+    (out_dir / "T002.json").write_text(json.dumps(stale_content))
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+    rc = run_benchmark.main(
+        ["--live", "--no-archive", "--tickets", "T001,T002", "--out", str(out_dir)]
+    )
+    assert rc == 0
+
+    # no archiving happened at all
+    assert not archive_root.exists()
+    files = sorted(p.name for p in out_dir.iterdir())
+    assert files == ["T001.json", "T002.json"]
+    # the stale T002.json was overwritten by the new sweep, not left as-is
+    result = json.loads((out_dir / "T002.json").read_text())
+    assert result != stale_content
+    assert result["ticket_id"] == "T002"
+
+
+def test_empty_out_dir_no_archive_dir_and_no_stderr_line(tmp_path, monkeypatch, capsys):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+    rc = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(out_dir)])
+    assert rc == 0
+
+    assert not archive_root.exists()
+    captured = capsys.readouterr()
+    assert "Archived" not in captured.err
+
+
+def test_live_guard_rejection_does_not_archive(tmp_path, monkeypatch):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+
+    stale_content = {"stale": True, "ticket_id": "T003"}
+    (out_dir / "T003.json").write_text(json.dumps(stale_content))
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+    rc = run_benchmark.main(["--tickets", "T001", "--out", str(out_dir)])
+    assert rc != 0
+
+    assert not archive_root.exists()
+    files = sorted(p.name for p in out_dir.iterdir())
+    assert files == ["T003.json"]
+    assert json.loads((out_dir / "T003.json").read_text()) == stale_content
+
+
+def test_timestamp_collision_creates_distinct_archive_dirs(tmp_path, monkeypatch):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+    monkeypatch.setattr(run_benchmark, "_utc_timestamp", lambda: "20260101T000000Z")
+
+    first_stale = {"stale": True, "ticket_id": "T010"}
+    (out_dir / "T010.json").write_text(json.dumps(first_stale))
+
+    monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", lambda tid: _canned_state(tid))
+
+    rc1 = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(out_dir)])
+    assert rc1 == 0
+
+    # second sweep, forced to the same timestamp, with a new stale file.
+    second_stale = {"stale": True, "ticket_id": "T011"}
+    (out_dir / "T011.json").write_text(json.dumps(second_stale))
+    # the T001.json written by the first sweep is also "stale" from the
+    # second sweep's point of view since it predates this run.
+    rc2 = run_benchmark.main(["--live", "--tickets", "T002", "--out", str(out_dir)])
+    assert rc2 == 0
+
+    archive_dirs = sorted(p.name for p in archive_root.iterdir())
+    assert len(archive_dirs) == 2
+    assert archive_dirs[0] == "20260101T000000Z"
+    assert archive_dirs[1] == "20260101T000000Z-2"
+
+    # first archive dir's content is byte-for-byte intact -- not clobbered
+    # by the second archive operation landing on the same timestamp.
+    first_dir_files = {p.name: p.read_text() for p in (archive_root / archive_dirs[0]).iterdir()}
+    assert first_dir_files == {"T010.json": json.dumps(first_stale)}
+
+    second_dir_files = {p.name: json.loads(p.read_text()) for p in (archive_root / archive_dirs[1]).iterdir()}
+    assert set(second_dir_files) == {"T001.json", "T011.json"}
+    assert second_dir_files["T011.json"] == second_stale
+    assert second_dir_files["T001.json"]["ticket_id"] == "T001"
+    assert second_dir_files["T001.json"]["state"] == _canned_state("T001").model_dump()
+
+
+def test_partial_move_failure_aborts_before_any_ticket_runs(tmp_path, monkeypatch, capsys):
+    archive_root = tmp_path / "archive_root"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    monkeypatch.setattr(run_benchmark, "ARCHIVE_ROOT", archive_root)
+
+    (out_dir / "T020.json").write_text(json.dumps({"ticket_id": "T020"}))
+    (out_dir / "T021.json").write_text(json.dumps({"ticket_id": "T021"}))
+
+    real_move = run_benchmark.shutil.move
+    call_count = {"n": 0}
+
+    def flaky_move(src, dst):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise OSError("disk full")
+        return real_move(src, dst)
+
+    monkeypatch.setattr(run_benchmark.shutil, "move", flaky_move)
+
+    run_calls = []
+    monkeypatch.setattr(
+        run_benchmark.orchestrator,
+        "run_agent_loop",
+        lambda tid: (run_calls.append(tid), _canned_state(tid))[1],
+    )
+
+    rc = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(out_dir)])
+
+    assert rc != 0
+    assert run_calls == []  # zero tickets executed
+
+    captured = capsys.readouterr()
+    assert "moved (1)" in captured.err
+    assert "remaining in" in captured.err
+    assert "T020.json" in captured.err or "T021.json" in captured.err

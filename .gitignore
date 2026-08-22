@@ -5,4 +5,11 @@ __pycache__/
 chroma_db/
 *.db
 
+# Raw per-ticket sweep output and archived old sweeps are bulky and
+# regenerable -- ignore them, but report.md/report.json (written by Part B)
+# are the committed history of eval results over the project's life, so
+# explicitly un-ignore those two even though they live under eval/results/.
 eval/results/raw/*.json
+eval/results/runs/
+!eval/results/report.md
+!eval/results/report.json
