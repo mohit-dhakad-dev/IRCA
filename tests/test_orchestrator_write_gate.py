@@ -368,3 +368,189 @@ def test_compose_transient_error_retries_and_resolves(monkeypatch):
     # only a single update_ticket call was ever made -- the attempt budget
     # was untouched by the transient failure.
     assert len(update_ticket_entries) == 1
+
+
+# ---------------------------------------------------------------------------
+# 9. _runbook_fix_and_constraints: loads both sections for a real doc_id,
+#    returns None for a missing doc_id, and never raises either way.
+# ---------------------------------------------------------------------------
+def test_runbook_fix_and_constraints_real_doc_id():
+    text = orchestrator_module._runbook_fix_and_constraints("RB-AUTH-001")
+    assert text is not None
+    assert "## Fix" in text
+    assert "## Constraints" in text
+    assert "signing key" in text.lower()
+
+
+def test_runbook_fix_and_constraints_missing_doc_id():
+    text = orchestrator_module._runbook_fix_and_constraints("RB-NOPE-999")
+    assert text is None
+
+
+# ---------------------------------------------------------------------------
+# 10. The compose prompt actually contains the cited runbook's Fix and
+#     Constraints text plus the delimiters.
+# ---------------------------------------------------------------------------
+def test_compose_prompt_contains_runbook_fix_and_constraints(monkeypatch):
+    responses = _install_resolving_setup(monkeypatch)
+    responses.append(_make_text_response(PASSING_FIX))
+
+    captured = []
+
+    def fake_call(messages, tools):
+        captured.append([m["content"] for m in messages])
+        return responses.pop(0)
+
+    monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "resolved"
+    compose_messages = captured[-1]
+    joined = "\n".join(c or "" for c in compose_messages)
+    assert f"--- BEGIN RUNBOOK {RUNBOOK_DOC_ID} ---" in joined
+    assert "--- END RUNBOOK ---" in joined
+    assert "## Fix" in joined
+    assert "## Constraints" in joined
+
+
+# ---------------------------------------------------------------------------
+# 11. When the loader returns None (unknown doc_id), the compose prompt is
+#     unchanged (no injected block) and the existing escalate-on-failure
+#     path still holds.
+# ---------------------------------------------------------------------------
+def test_missing_runbook_leaves_compose_prompt_unchanged_and_still_escalates(monkeypatch):
+    state = TaskState(
+        ticket_id=TICKET_ID,
+        description="desc",
+        hypothesis="some cause",
+        citations=["RB-NOPE-999"],
+    )
+
+    captured = []
+
+    def fake_call(messages, tools):
+        captured.append([m["content"] for m in messages])
+        return {"error": "boom"}
+
+    monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
+
+    orchestrator_module._queue_write_action(state, [])
+
+    assert state.status == "escalated"
+    compose_messages = captured[-1]
+    joined = "\n".join(c or "" for c in compose_messages)
+    assert "BEGIN RUNBOOK" not in joined
+
+
+# ---------------------------------------------------------------------------
+# 12. An unusable (empty) response triggers ONE in-attempt re-ask; a usable
+#     response on that re-ask queues a write, and MAX_WRITE_ATTEMPTS is NOT
+#     exhausted (assert on the LLM call count / trajectory shape).
+# ---------------------------------------------------------------------------
+def test_unusable_response_reasks_once_then_resolves(monkeypatch):
+    responses = _install_resolving_setup(monkeypatch)
+    responses.append(_make_text_response(""))
+    responses.append(_make_text_response(PASSING_FIX))
+
+    call_count = {"n": 0}
+
+    def fake_call(messages, tools):
+        call_count["n"] += 1
+        return responses.pop(0)
+
+    monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", fake_call)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "resolved"
+    pending = approval_module.list_pending_actions()
+    assert len(pending) == 1
+
+    update_ticket_entries = [
+        e for e in state.trajectory
+        if e.get("tool_call") and e["tool_call"]["name"] == "update_ticket"
+    ]
+    # Only ONE update_ticket call: the in-attempt re-ask did not consume a
+    # MAX_WRITE_ATTEMPTS slot.
+    assert len(update_ticket_entries) == 1
+    # 2 pre-compose calls (query_logs round + search_runbooks round) + 2
+    # compose calls (initial unusable + re-ask).
+    assert call_count["n"] == 6
+
+
+# ---------------------------------------------------------------------------
+# 13. A response containing harmony control-token debris is rejected as
+#     unusable and NEVER reaches update_ticket. Critical safety test.
+# ---------------------------------------------------------------------------
+def test_control_token_debris_never_reaches_update_ticket(monkeypatch):
+    responses = _install_resolving_setup(monkeypatch)
+    responses.append(_make_text_response("<|message|><|start|>assistant garbage"))
+    responses.append(_make_text_response(PASSING_FIX))
+    _install_responses(monkeypatch, responses)
+
+    update_ticket_calls = []
+    real_update_ticket = orchestrator_module.update_ticket
+
+    def spy_update_ticket(**kwargs):
+        update_ticket_calls.append(kwargs)
+        return real_update_ticket(**kwargs)
+
+    monkeypatch.setattr(orchestrator_module, "update_ticket", spy_update_ticket)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "resolved"
+    assert len(update_ticket_calls) == 1
+    assert "<|" not in update_ticket_calls[0]["proposed_fix"]
+    assert update_ticket_calls[0]["proposed_fix"] == PASSING_FIX
+
+
+# ---------------------------------------------------------------------------
+# 13b. Control-token debris must never leak into state.trajectory either --
+#      it is returned verbatim to API callers via /tickets/{ticket_id}/resolve
+#      (main.py). Assert over the WHOLE serialized trajectory, not just one
+#      field, so this can't pass by checking the wrong key.
+# ---------------------------------------------------------------------------
+def test_control_token_debris_never_reaches_trajectory(monkeypatch):
+    responses = _install_resolving_setup(monkeypatch)
+    responses.append(_make_text_response("<|message|><|start|>assistant garbage"))
+    responses.append(_make_text_response(PASSING_FIX))
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "resolved"
+    serialized = json.dumps(state.trajectory)
+    assert "<|" not in serialized
+
+
+# ---------------------------------------------------------------------------
+# 14. Two consecutive unusable responses (initial + re-ask) consume ONE
+#     attempt; four total unusable responses consume both attempts and
+#     escalate.
+# ---------------------------------------------------------------------------
+def test_repeated_unusable_responses_consume_attempts_and_escalate(monkeypatch):
+    responses = _install_resolving_setup(monkeypatch)
+    responses.append(_make_text_response(""))  # attempt 1, initial
+    responses.append(_make_text_response(""))  # attempt 1, re-ask
+    responses.append(_make_text_response("<|bad|>"))  # attempt 2, initial
+    responses.append(_make_text_response("<|bad|>"))  # attempt 2, re-ask
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "escalated"
+    assert approval_module.list_pending_actions() == []
+
+    update_ticket_entries = [
+        e for e in state.trajectory
+        if e.get("tool_call") and e["tool_call"]["name"] == "update_ticket"
+    ]
+    # Each attempt is recorded exactly once in the trajectory (the in-attempt
+    # re-ask doesn't add its own entry), so 2 attempts -> 2 entries.
+    assert len(update_ticket_entries) == 2
+    assert all(
+        e["observation"]["summary"] == "model returned no usable fix text"
+        for e in update_ticket_entries
+    )

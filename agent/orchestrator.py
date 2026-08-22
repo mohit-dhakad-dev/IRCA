@@ -18,6 +18,7 @@ from agent.llm import call_llm_with_tools
 from agent.state import TaskState
 from agent.tool_executor import execute_tool_call
 from agent.tool_schemas import TOOL_SCHEMAS
+from rag.ingest import RUNBOOKS_DIR, parse_runbook
 from tools.fake_data import get_ticket
 from tools.ticket_tools import update_ticket
 
@@ -398,6 +399,61 @@ def _can_resolve(state: TaskState) -> bool:
     )
 
 
+def _runbook_fix_and_constraints(doc_id: str) -> str | None:
+    """Load `doc_id`'s Fix and Constraints sections verbatim, for injection
+    into the compose prompt.
+
+    Reuses the same loader (RUNBOOKS_DIR / parse_runbook) that
+    agent.approval.verify_against_constraints uses to judge the proposed
+    fix, on purpose: the compose step must be shown the exact text the
+    verifier will check it against, not a paraphrase or a re-derivation of
+    it. Never raises -- a missing file or a runbook with neither section is
+    a "nothing to inject" case, not a crash.
+    """
+    try:
+        path = RUNBOOKS_DIR / f"{doc_id}.md"
+        if not path.is_file():
+            return None
+        chunks = parse_runbook(path)
+    except Exception:
+        return None
+
+    fix_chunk = next((c for c in chunks if c.section == "Fix"), None)
+    constraints_chunk = next((c for c in chunks if c.section == "Constraints"), None)
+    if fix_chunk is None and constraints_chunk is None:
+        return None
+
+    parts = []
+    if fix_chunk is not None:
+        parts.append(f"## Fix\n{fix_chunk.body}")
+    if constraints_chunk is not None:
+        parts.append(f"## Constraints\n{constraints_chunk.body}")
+    return "\n\n".join(parts)
+
+
+# Logged in place of a rejected compose response's raw text (both "thought"
+# and the logged proposed_fix) so that leaked harmony control tokens or an
+# empty response never propagate into state.trajectory -- which is returned
+# verbatim to API callers via /tickets/{ticket_id}/resolve (main.py).
+_UNUSABLE_COMPOSE_PLACEHOLDER = "[unusable compose output, discarded]"
+
+
+def _is_usable_fix_text(text: str) -> bool:
+    """Whether `text` is safe to treat as a proposed fix.
+
+    False for empty/whitespace-only text, and for text containing harmony
+    control-token debris (the substring "<|") -- a leaked control token
+    (e.g. from a malformed tool-call turn) must never be written into the
+    approval queue as though it were a real proposed fix.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if "<|" in stripped:
+        return False
+    return True
+
+
 def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
     """The loop's terminal action for a resolved run.
 
@@ -437,6 +493,16 @@ def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
             f"Confirmed root cause: {state.hypothesis!r}.",
             f"Cited runbook doc_id: {citation_doc_id}.",
         ]
+        runbook_text = _runbook_fix_and_constraints(citation_doc_id)
+        if runbook_text is not None:
+            instruction_parts.append(
+                "The cited runbook's Fix and Constraints sections are "
+                "reproduced IN FULL below. You already have everything "
+                "required: do not call any tool, reply with prose only.\n"
+                f"--- BEGIN RUNBOOK {citation_doc_id} ---\n"
+                f"{runbook_text}\n"
+                "--- END RUNBOOK ---"
+            )
         if attempt > 1:
             instruction_parts.append(
                 "Your previous proposed fix was rejected for this reason: "
@@ -470,18 +536,60 @@ def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
             return
 
         compose_text = resp.choices[0].message.content or ""
+
+        # An unusable reply (empty content, or leaked control-token debris)
+        # almost always means the model reached for a tool call instead of
+        # writing prose (see module-level notes for the root cause). Re-ask
+        # ONCE within this same attempt, mirroring the transient-error retry
+        # immediately above -- this must not consume a MAX_WRITE_ATTEMPTS
+        # slot, since the failure is about response shape, not about the
+        # fix violating a constraint.
+        if not _is_usable_fix_text(compose_text):
+            reask_messages = list(compose_messages)
+            reask_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "Your previous reply contained no usable fix text "
+                        "(you attempted a tool call or returned control "
+                        "tokens). You already have the runbook text you "
+                        "need. Reply with plain prose only -- no tool "
+                        "calls, no JSON, no markdown."
+                    ),
+                }
+            )
+            resp = call_llm_with_tools(reask_messages, [])
+            if isinstance(resp, dict):
+                state.trajectory.append(
+                    {
+                        "iteration": state.iteration,
+                        "thought": "",
+                        "tool_call": None,
+                        "observation": {"error": f"LLM call failed: {resp['error']}"},
+                        "hypothesis_after": state.hypothesis,
+                    }
+                )
+                state.status = "escalated"
+                return
+            compose_text = resp.choices[0].message.content or ""
+
         proposed_fix = compose_text.strip()
-        if not proposed_fix:
-            last_reason = "model returned no fix text"
+        if not _is_usable_fix_text(compose_text):
+            last_reason = "model returned no usable fix text"
+            # Never let the raw compose_text (which may carry leaked
+            # harmony control tokens) into the trajectory -- it is returned
+            # verbatim to API callers via /tickets/{ticket_id}/resolve, so
+            # both "thought" and the logged proposed_fix are replaced with a
+            # fixed placeholder instead of the discarded output.
             state.trajectory.append(
                 {
                     "iteration": state.iteration,
-                    "thought": compose_text,
+                    "thought": _UNUSABLE_COMPOSE_PLACEHOLDER,
                     "tool_call": {
                         "name": "update_ticket",
                         "arguments": {
                             "proposed_root_cause": state.hypothesis,
-                            "proposed_fix": proposed_fix,
+                            "proposed_fix": _UNUSABLE_COMPOSE_PLACEHOLDER,
                             "citation_doc_id": citation_doc_id,
                         },
                     },
