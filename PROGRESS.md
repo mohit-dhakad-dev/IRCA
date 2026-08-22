@@ -443,22 +443,111 @@
 - [ ] Eval harness (Part A) NOT started — deliberately left for a separate session
 
 ## Phase: Eval Harness — Part A (runner)
-- [ ] eval/run_benchmark.py: sequential run_agent_loop over all 63 tickets, per-ticket raw
+- [x] eval/run_benchmark.py: sequential run_agent_loop over all 63 tickets, per-ticket raw
       output to eval/results/raw/{ticket_id}.json, written immediately after each ticket
       (never batched) and atomically (tmp + os.replace) so a kill mid-run cannot corrupt a
       completed ticket
-- [ ] `--live` is REQUIRED (mirrors pytest.ini `-m "not live"`); without it the script exits 2
+- [x] `--live` is REQUIRED (mirrors pytest.ini `-m "not live"`); without it the script exits 2
       before touching a ticket. `--subset N` / `--tickets T001,T009` / `--out DIR` for cheap
       iteration
-- [ ] Token/LLM-call capture via a shim local to eval/ that patches
+- [x] Token/LLM-call capture via a shim local to eval/ that patches
       agent.orchestrator.call_llm_with_tools (the orchestrator imports the symbol directly, so
       patching agent.llm would NOT take effect) and reads .usage off each ChatCompletion.
       Production code untouched. Chosen over instrumenting agent/llm.py so this phase stays in
       eval/ and is reversible — revisit if efficiency metrics need to survive outside the harness
-- [ ] state is a verbatim state.model_dump(); ticket fields are denormalized into each file so
+- [x] state is a verbatim state.model_dump(); ticket fields are denormalized into each file so
       the scorer needn't re-join tickets.json. Part A computes NO metrics
 - [ ] Constraint for Part B (eval/report.py): it MUST explicitly check run.runner_error on every
       file and surface crashed tickets as a distinct "crashed" count — never silently excluded
       from aggregates, never averaged away. A crashed ticket has state=null + populated
       runner_error, which is what distinguishes it from an absent file (not yet run) and from a
       legitimately escalated/errored run (state populated, runner_error null)
+- [x] Sweep archiving (305e5d8): each sweep's raw output is MOVED to
+      eval/results/runs/{UTC timestamp}/ before the next run, so raw/ always holds exactly one
+      sweep. Two data-loss paths closed in review first — timestamp collision overwriting an
+      existing archive, and a partial move falling through into the sweep over a half-cleared dir
+
+## Phase 9a — Part A: In Progress
+- [x] Runner (eval/run_benchmark.py) built, byte-identical checkpoint at 305e5d8
+- [x] First full 63-ticket sweep complete (raw only, report.py not yet built)
+- [x] Escalation accuracy: 12/13 correct
+- [ ] **KNOWN ISSUE: 31/50 resolve-expected tickets escalated instead — under-resolution,
+      root cause not yet isolated (confidence threshold / evidence-source count /
+      observational-tool requirement — one of these three is binding)**
+- [ ] Diagnostic breakdown of the 31 (next step)
+- [ ] Part B (metrics.py + report.py) — deferred until diagnostic complete
+
+### Correction to the KNOWN ISSUE above
+The stop-success gate (_can_resolve, agent/orchestrator.py) has SIX conditions, not three, so
+the candidate list above is incomplete. In addition to confidence >= 0.75, >= 2 evidence
+sources, and >= 1 observational tool, a resolve also requires: "search_runbooks" itself
+credited as an evidence source; >= 1 citation; and every citation being a doc_id actually
+observed this run (a fabricated doc_id blocks the resolve exactly like no citation).
+
+The runbook-credit condition is the prime suspect. _credit_evidence only credits a tool whose
+observation status was "ok", and search_runbooks returns "no_confident_match" rather than "ok"
+when it has no confident hit — so any ticket whose runbook retrieval misses the confidence
+threshold can NEVER resolve, by design, regardless of how strong the log/metric evidence is.
+That connects this issue directly to the unresolved retrieval-threshold calibration noted
+above under the RAG/memory phase. The diagnostic must check all six conditions independently.
+
+### First full sweep — raw results (2026-08-22)
+- 63/63 tickets, 0 crashed, 0 corrupt files. Archived under eval/results/runs/
+- Outcome: 20 resolved / 43 escalated
+- Against expected_behavior: escalate 12/13 correct (1 wrongly resolved);
+  resolve_with_approval 19/50 correct (31 wrongly escalated)
+- Cost/efficiency: 1,243 LLM calls, 1.82M tokens in, 191k out (2.01M total), ~$0.39,
+  50.4 min wall clock (mean 48.0s, p50 47.1s, p95 69.2s, max 94.6s per ticket)
+- Estimate calibration: the projection from a single T001 run (~$0.25, ~20 min) was low by
+  ~1.5x on cost and ~2.5x on time. T001 is a fast ticket, not a representative one — project
+  future sweep cost from the mean, not from a sample of one
+- The sweep was killed at T029 by a session teardown and resumed with
+  --live --no-archive --tickets T030..T063. All 29 pre-kill files were valid and parseable,
+  which is the atomic-write guarantee doing its job
+
+### Under-resolution diagnosis (eval/diagnose_underresolution.py)
+Of the 31 resolve-expected tickets that escalated:
+- 15 passed ALL SIX _can_resolve conditions and were then demoted by the WRITE GATE
+- 13 failed only has_citations; 2 failed confidence+citations; 1 failed confidence+evidence+observational
+- runbook_credited and citations_grounded: ZERO failures each. The runbook-credit condition was
+  the prime suspect and was wrong — worth recording, since the diagnostic is what falsified it
+- Confidence is barely implicated: median 0.90 among failures, p25 0.85, well clear of the 0.75 bar.
+  Do NOT tune CONFIDENCE_THRESHOLD on this evidence
+Of the 15 write-gate demotions: 13 were "model returned no fix text", 2 were genuine constraint
+violations (T002 95% vs a 75% bound, T035 15s vs a 5s bound) — the gate working correctly.
+
+### Compose-step bug and fix
+Root cause, established by live experiment rather than inspection: WRITE_COMPOSE_INSTRUCTION orders
+the model to use the cited runbook's Fix/Constraints wording and units, but on the failing contexts
+that text was never retrieved into the conversation. The model reaches for search_runbooks instead
+of writing prose; because the compose call passes tools=[], agent/llm.py omits the tools parameter
+entirely, so the provider returns finish_reason="tool_calls" with an EMPTY tool_calls list and empty
+content. The fix text is destroyed in transit and nothing is recoverable.
+
+This is deterministic per context, not flaky: T010 and T020 failed 9/9 on their captured contexts,
+T011 succeeded 9/9. Ticket-level variation comes from which context a run happens to reach.
+
+Two candidate fixes were tested and REJECTED — record them so they are not retried:
+- tool_choice="none" with TOOL_SCHEMAS passed: provider ignores it for gpt-oss-120b, 10/10 still
+  empty, indistinguishable from control
+- flattening the tool-call history into prose turns: scored 0/8 "empty" but the content was GARBAGE
+  containing raw harmony control tokens (<|message|><|start|>assistant). This would have been worse
+  than the bug — non-empty debris passes the emptiness check and lands in the human approval queue
+  as a proposed fix. The lesson: non-emptiness was the wrong success metric; sanity is the metric
+
+Accepted fix: inject the cited runbook's Fix+Constraints text into the compose prompt, loaded via
+the SAME rag.ingest.parse_runbook path that agent/approval.py verify_against_constraints uses, so
+the model is shown exactly the text it will be judged against. Measured 18/18 sane vs 0/18 control
+on the known-bad contexts. Plus _is_usable_fix_text, which rejects empty or control-token text and
+triggers one in-attempt re-ask that does NOT consume a MAX_WRITE_ATTEMPTS slot.
+
+Live validation: T020 and T010 flipped from deterministic false escalation to queued approvals.
+T004 now escalates on a GENUINE constraint violation (15s vs a 5s bound) — correct behaviour, and
+note the model was shown those constraints and still exceeded them, which is why the independent
+verifier must stay independent.
+- [ ] FOLLOW-UP (not this change): T011 now escalates on "Proposed fix value 500 (no unit)" — the
+      constraint verifier rejecting a bare number for lacking a unit. A separate verifier-strictness
+      question and a plausible remaining contributor to under-resolution. Look at it after Part B
+- [ ] FOLLOW-UP: the sweep hit HTTP 429s repeatedly during probing. call_llm_with_tools retries a
+      transient error exactly once with a 1s backoff, which is thin for a 63-ticket sequential run.
+      Unrelated to the compose bug, but a second possible source of lost runs
