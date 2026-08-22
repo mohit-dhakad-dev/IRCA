@@ -441,3 +441,24 @@
 - [ ] Memory-layer Recall@1 fell to 43/53 (0.811) on the larger set, from 11/13. Worth a look
       when past_incidents grows beyond 8 records
 - [ ] Eval harness (Part A) NOT started — deliberately left for a separate session
+
+## Phase: Eval Harness — Part A (runner)
+- [ ] eval/run_benchmark.py: sequential run_agent_loop over all 63 tickets, per-ticket raw
+      output to eval/results/raw/{ticket_id}.json, written immediately after each ticket
+      (never batched) and atomically (tmp + os.replace) so a kill mid-run cannot corrupt a
+      completed ticket
+- [ ] `--live` is REQUIRED (mirrors pytest.ini `-m "not live"`); without it the script exits 2
+      before touching a ticket. `--subset N` / `--tickets T001,T009` / `--out DIR` for cheap
+      iteration
+- [ ] Token/LLM-call capture via a shim local to eval/ that patches
+      agent.orchestrator.call_llm_with_tools (the orchestrator imports the symbol directly, so
+      patching agent.llm would NOT take effect) and reads .usage off each ChatCompletion.
+      Production code untouched. Chosen over instrumenting agent/llm.py so this phase stays in
+      eval/ and is reversible — revisit if efficiency metrics need to survive outside the harness
+- [ ] state is a verbatim state.model_dump(); ticket fields are denormalized into each file so
+      the scorer needn't re-join tickets.json. Part A computes NO metrics
+- [ ] Constraint for Part B (eval/report.py): it MUST explicitly check run.runner_error on every
+      file and surface crashed tickets as a distinct "crashed" count — never silently excluded
+      from aggregates, never averaged away. A crashed ticket has state=null + populated
+      runner_error, which is what distinguishes it from an absent file (not yet run) and from a
+      legitimately escalated/errored run (state populated, runner_error null)
