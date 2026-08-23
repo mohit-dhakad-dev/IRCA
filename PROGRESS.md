@@ -719,3 +719,29 @@ what this parser then falsely rejects. The compose fix did not cause these; it s
 - [x] update_ticket stays in the executor registry and TICKET_SCOPED_TOOLS deliberately, so the
       direct-call/injection defences still apply. A test now asserts its ABSENCE from TOOL_SCHEMAS
       so a future re-add fails loudly
+
+### Post-fix sweep (2026-08-23, sweep 4) — 63/63, 0 errors
+Like-for-like against the pre-fix sweep using the CORRECTED labels:
+- task success 30/63 (48%) -> 50/63 (79%)
+- resolve-expected 20/53 -> 40/53; escalate-expected 10/10 -> 10/10 (unchanged, no safety cost)
+- 600 LLM calls vs 1243; 1.47M tokens vs 2.01M; ~$0.30 vs $0.39; 40.3min vs 50.4min
+
+13 failures remain, and they are NOT one cause:
+- 8 are still the constraint parser, in two shapes the fix did not cover:
+  "value 20/15 seconds exceeds the max bound 5 seconds" (T004, T008, T019, T029, T035, T051)
+  "value 80 % exceeds the max bound 7..." (T023, T027, T033)
+- [ ] REGRESSION CAUSED BY THE PARSER FIX: T023, T027, T033 RESOLVED pre-fix and now escalate on
+      the 80% case. The fix introduced a new false-rejection path on percentage bounds. It was
+      verified against used_memory_rss at 95% and 60% — both hand-picked, both fine — which is
+      exactly why hand-picked verification was insufficient. Do not touch the parser again
+      without a full-corpus dump of every Constraints bullet in all 6 runbooks
+- [ ] T013/T025: fail on the LOOP GUARD ("Already tried this exact call this run"), not
+      constraints. T013 was misfiled as a parser casualty during triage. Unknown whether the guard
+      is firing correctly (a genuine repeat, so a legitimate escalation) or falsely (args that
+      differ being hashed as identical). Investigate before assuming either
+- [ ] T049: escalated on "best score 0.45 < 0.50 threshold" — it scored 0.75 in the previous
+      sweep on the same ticket. Retrieval-SCORE variance, distinct from the task-OUTCOME variance
+      already recorded for T001/T017/T040. Not the update_ticket schema removal, which was the
+      first suspicion
+- [ ] T044: final observation is None. Unexplained; runner_error is null so the runner did not
+      see a crash. Trace it — may be a real None-where-dict-expected bug rather than a scoring nuance
