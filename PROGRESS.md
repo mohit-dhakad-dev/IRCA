@@ -551,3 +551,10 @@ verifier must stay independent.
 - [ ] FOLLOW-UP: the sweep hit HTTP 429s repeatedly during probing. call_llm_with_tools retries a
       transient error exactly once with a 1s backoff, which is thin for a 63-ticket sequential run.
       Unrelated to the compose bug, but a second possible source of lost runs
+- [ ] FOLLOW-UP: retry amplification. agent/llm.py now retries transient errors internally (up to
+      6 attempts), but agent/orchestrator.py still has its own single retry-on-dict at the critic,
+      loop, and compose sites, and _queue_write_action stacks a second one. Worst case for one
+      compose step is 3 x 6 = 18 API attempts / ~450s under a sustained provider outage. Not a
+      correctness risk — a stall, not a wrong answer — but the orchestrator-level retries are now
+      largely redundant and should probably be dropped. Deliberately NOT changed immediately before
+      the clean re-sweep, to avoid touching the agent loop right before the run it must validate

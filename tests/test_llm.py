@@ -7,7 +7,17 @@ import openai
 import pytest
 
 import agent.llm as llm_module
-from agent.llm import MODEL, call_llm_with_tools
+from agent.llm import MAX_RETRIES, MAX_BACKOFF_SECONDS, MODEL, call_llm_with_tools
+
+
+@pytest.fixture(autouse=True)
+def _no_real_sleep(monkeypatch):
+    """No test in this module may block on a real sleep. Records requested
+    delays instead so retry/backoff behaviour can be asserted.
+    """
+    delays = []
+    monkeypatch.setattr(llm_module, "_sleep", lambda seconds: delays.append(seconds))
+    return delays
 
 
 class _StubCompletions:
@@ -221,3 +231,155 @@ class TestClientConfigResolution:
 
         with pytest.raises(RuntimeError):
             llm_module._get_client()
+
+
+class _FlakyCompletions:
+    """Raises the given exceptions in order, then returns `result` (or keeps
+    raising the last exception forever if `result` is None and exhausted).
+    """
+
+    def __init__(self, excs, result=None):
+        self._excs = list(excs)
+        self._result = result
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        if self._excs:
+            raise self._excs.pop(0)
+        return self._result
+
+
+class _FlakyClient:
+    def __init__(self, excs, result=None):
+        self.completions = _FlakyCompletions(excs, result=result)
+        self.chat = _StubChat(self.completions)
+
+
+def _make_rate_limit_error_with_retry_after(value):
+    req = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    headers = {"retry-after": value} if value is not None else {}
+    resp = httpx.Response(429, request=req, headers=headers)
+    return openai.RateLimitError("rate limited", response=resp, body=None)
+
+
+def _make_status_error(status_code):
+    req = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    resp = httpx.Response(status_code, request=req)
+    return openai.APIStatusError(f"status {status_code}", response=resp, body=None)
+
+
+def test_429_then_success_retries_once(monkeypatch, _no_real_sleep=None):
+    sentinel = _Sentinel()
+    exc = _make_rate_limit_error_with_retry_after(None)
+    stub = _FlakyClient([exc], result=sentinel)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert result is sentinel
+    assert len(stub.completions.calls) == 2
+
+
+def test_repeated_429_exhausts_retries(monkeypatch):
+    excs = [_make_rate_limit_error_with_retry_after(None) for _ in range(MAX_RETRIES + 1)]
+    stub = _FlakyClient(excs, result=None)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert isinstance(result, dict)
+    assert "error" in result
+    assert str(MAX_RETRIES + 1) in result["error"]
+    assert len(stub.completions.calls) == MAX_RETRIES + 1
+
+
+def test_delays_grow_exponentially_and_cap(monkeypatch, _no_real_sleep):
+    excs = [_make_rate_limit_error_with_retry_after(None) for _ in range(MAX_RETRIES + 1)]
+    stub = _FlakyClient(excs, result=None)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    delays = _no_real_sleep
+    assert len(delays) == MAX_RETRIES
+    assert all(d <= MAX_BACKOFF_SECONDS for d in delays)
+    # non-decreasing (jitter can only add, cap prevents strict decrease)
+    assert all(delays[i] <= delays[i + 1] for i in range(len(delays) - 1))
+
+
+def test_retry_after_header_honoured(monkeypatch, _no_real_sleep):
+    sentinel = _Sentinel()
+    exc = _make_rate_limit_error_with_retry_after("7")
+    stub = _FlakyClient([exc], result=sentinel)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert result is sentinel
+    assert _no_real_sleep == [7.0]
+
+
+def test_malformed_retry_after_falls_back_to_computed_backoff(monkeypatch, _no_real_sleep):
+    sentinel = _Sentinel()
+    exc = _make_rate_limit_error_with_retry_after("soon")
+    stub = _FlakyClient([exc], result=sentinel)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert result is sentinel
+    assert len(_no_real_sleep) == 1
+    assert _no_real_sleep[0] != 7.0
+
+
+def test_401_returns_immediately_no_retry(monkeypatch, _no_real_sleep):
+    exc = _make_status_error(401)
+    stub = _FlakyClient([exc], result=_Sentinel())
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert isinstance(result, dict)
+    assert "error" in result
+    assert len(stub.completions.calls) == 1
+    assert _no_real_sleep == []
+
+
+def test_404_returns_immediately_no_retry(monkeypatch, _no_real_sleep):
+    exc = _make_status_error(404)
+    stub = _FlakyClient([exc], result=_Sentinel())
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert isinstance(result, dict)
+    assert "error" in result
+    assert len(stub.completions.calls) == 1
+    assert _no_real_sleep == []
+
+
+def test_api_connection_error_retries(monkeypatch, _no_real_sleep):
+    sentinel = _Sentinel()
+    exc = _make_api_connection_error()
+    stub = _FlakyClient([exc], result=sentinel)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert result is sentinel
+    assert len(stub.completions.calls) == 2
+    assert len(_no_real_sleep) == 1
+
+
+def test_500_status_error_retries(monkeypatch, _no_real_sleep):
+    sentinel = _Sentinel()
+    exc = _make_status_error(500)
+    stub = _FlakyClient([exc], result=sentinel)
+    monkeypatch.setattr(llm_module, "_get_client", lambda: stub)
+
+    result = call_llm_with_tools([{"role": "user", "content": "hi"}], [])
+
+    assert result is sentinel
+    assert len(stub.completions.calls) == 2
+    assert len(_no_real_sleep) == 1

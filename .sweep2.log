@@ -1,0 +1,14 @@
+Archived 63 file(s) from a previous sweep to /workspaces/IRCA/eval/results/runs/20260823T114221Z
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3180.90it/s]
+[1/63] T001 status=resolved wall_clock=20.029s
+[2/63] T002 status=resolved wall_clock=20.118s
+[3/63] T003 status=resolved wall_clock=38.996s
+[4/63] T004 status=escalated wall_clock=64.227s
+[5/63] T005 status=error wall_clock=17.890s
+[6/63] T006 status=escalated wall_clock=45.656s
+[7/63] T007 status=resolved wall_clock=45.236s
+[8/63] T008 status=escalated wall_clock=56.937s
+[9/63] T009 status=resolved wall_clock=33.859s
+[10/63] T010 status=escalated wall_clock=48.244s
+[11/63] T011 status=escalated wall_clock=64.168s
