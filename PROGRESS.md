@@ -735,13 +735,73 @@ Like-for-like against the pre-fix sweep using the CORRECTED labels:
       verified against used_memory_rss at 95% and 60% — both hand-picked, both fine — which is
       exactly why hand-picked verification was insufficient. Do not touch the parser again
       without a full-corpus dump of every Constraints bullet in all 6 runbooks
-- [ ] T013/T025: fail on the LOOP GUARD ("Already tried this exact call this run"), not
-      constraints. T013 was misfiled as a parser casualty during triage. Unknown whether the guard
-      is firing correctly (a genuine repeat, so a legitimate escalation) or falsely (args that
-      differ being hashed as identical). Investigate before assuming either
+- [x] T013/T025 investigated: fail on the LOOP GUARD ("Already tried this exact call this run"),
+      not constraints (T013 was misfiled as a parser casualty during triage). The guard is FIRING
+      CORRECTLY, not falsely. agent/orchestrator.py:854 hashes the signature from
+      args_without_ticket_id, and ticket_id is executor-injected (agent/tool_executor.py,
+      TICKET_SCOPED_TOOLS) and never model-supplied — so a call recorded WITH ticket_id and a
+      later one WITHOUT it are genuinely the same call. Concrete trace, T013: it3 query_logs
+      {level INFO, service app, window 30m} returned ok; it5 issued the identical call and was
+      correctly skipped; it6 issued the SAME call AGAIN and was skipped again. T025 has the same
+      shape at it5 and it7. Both are GENUINE agent failures on resolve-expected tickets, not
+      guard misfires and not legitimate escalations.
+- [ ] The real defect is RECOVERY, not detection: told "Already tried this exact call this run;
+      choose a different action", the model reissues the identical call, gathers no new
+      information, and the run escalates. The guard's corrective may need to be stronger (e.g.
+      list what has already been tried, or force a different tool), since simply reporting
+      "skipped" does not change the model's behaviour
 - [ ] T049: escalated on "best score 0.45 < 0.50 threshold" — it scored 0.75 in the previous
       sweep on the same ticket. Retrieval-SCORE variance, distinct from the task-OUTCOME variance
       already recorded for T001/T017/T040. Not the update_ticket schema removal, which was the
       first suspicion
-- [ ] T044: final observation is None. Unexplained; runner_error is null so the runner did not
-      see a crash. Trace it — may be a real None-where-dict-expected bug rather than a scoring nuance
+- [x] T044 investigated: NO None-observation bug, nothing crash-adjacent; runner_error being null
+      was correct. The earlier "None" was an artifact of the ad-hoc diagnostic, which printed
+      observation.get("summary") or observation.get("error") — T044's final observations are dicts
+      of shape {"text": ...}, which have neither key, so the diagnostic printed None. A reporting
+      error, not a system defect. What actually happened: at iterations 2 and 3 the model returned
+      NO tool call and instead asked clarifying questions ("I need to know the name (the service
+      slug) of the third microservice that's showing the health-check failure"). It called only
+      search_runbooks and search_past_incidents, never query_logs or query_metrics, so
+      evidence_sources contains no observational tool and _can_resolve correctly refused.
+      Escalating at confidence 0.4 was right.
+- [ ] The agent asks the user for information instead of investigating with the tools it already
+      has (T044) — a behavioural weakness on a resolve-expected ticket, worth addressing in the
+      system prompt, and distinct from every other failure class recorded here
+
+### Constraint parser round 2 — full-corpus, parameter-identity matching (2026-08-23)
+Built eval/verify_constraint_parsing.py first, per instruction: it dumps EVERY Constraints bullet
+in all 6 runbooks (18 bullets, 14 bounds, 8 bullets with no numerics) with no assertions, so the
+whole corpus could be eyeballed rather than sampled. That dump immediately showed the mechanism
+behind the T023/T027/T033 regression the previous hand-picked verification had missed.
+
+Three defects, all confirmed against real sweep output where the proposed fixes were FULLY COMPLIANT:
+1. Identifier dropped from a leading conditional: "If `maxmemory` is set, do not allow it to exceed
+   80%..." parsed with subject [checking, memory, node, oom, risk, swap, total] — `maxmemory` lost.
+   Its generic tokens then overlapped the OTHER bullet's used_memory_rss 75% bound, so a fix setting
+   maxmemory to its own permitted 80% was rejected against 75%.
+2. Any-token overlap matching: the shared word "readiness" made initialDelaySeconds=20 match the
+   timeoutSeconds max-5 bound, rejecting a value that correctly satisfied its own min of 15.
+3. Numbers harvested from explanatory text: retries phrased "70% (well under the 80% limit)" and the
+   80 was treated as a proposed value.
+
+Fixed by matching on PARAMETER IDENTITY, both sides: each bound resolves its own parameter from its
+bullet (backticked/camelCase/snake_case, including from a leading conditional), and each number in a
+proposed fix binds to its nearest preceding identifier. Comparison happens only when parameter AND
+unit both match. Defect 3 dissolves once association is correct — 80 binds to maxmemory's own max of
+80 and passes.
+- [x] tests/test_approval.py gains a PERMANENT full-corpus guard asserting the parsed
+      (direction, value, unit, parameter) for every bound in all 6 runbooks and exactly which 8
+      bullets yield none. A reworded Constraints bullet now fails loudly and needs a deliberate update
+- [x] Deleted the legacy _extract_bounds_from_bullet: after the fix the dump script was calling it
+      while verify_against_constraints used the new path, so the diagnostic no longer showed what the
+      system actually did. That is the same "verified the wrong thing" failure that caused this whole
+      round, so the dual path was removed rather than documented
+- [ ] KNOWN GAP (false ACCEPT, logged not fixed): "Retain 20 log files" passes against
+      RB-DISK-001's max-5-files bound, because that bound has no identifiable parameter and the
+      matcher abstains rather than matching on unit alone. Consistent with the deliberate
+      abstain-when-uncertain rule that removed six false rejections, but it is a false accept in a
+      safety gate. Fixing it means loosening that rule — needs care, not a quick patch
+- [ ] 8 of 14 bounds still have no resolvable parameter (bullets with no identifier token, e.g.
+      "Keep each production filesystem below 80% utilization"). Genuine violations on those are still
+      caught via the descriptive-subject fallback — verified for filesystem %, log file MB, network %,
+      key-overlap hours and headroom % — with the single documented exception above

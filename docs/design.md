@@ -482,6 +482,34 @@ Permission system: tools tagged READ vs WRITE; WRITE tools always route through 
 Prompt-injection defenses: tool outputs and RAG chunks wrapped in clearly delimited "untrusted data" blocks with an explicit system instruction that content inside can never alter the agent's plan/tool authorization; verified via the adversarial benchmark category, not just claimed.
 Human approval: required for all WRITE actions; UI/CLI is minimal (approve/reject prompt) for MVP.
 
+Retrieval-score variance: distinct from the task-outcome variance recorded elsewhere (the
+run-to-run success/escalation flip on identical tickets under temperature > 0 — see Step 9 and
+PROGRESS.md). This is variance in search_runbooks' best-chunk score for the SAME ticket, with the
+corpus and embedding model fixed across runs. Measured evidence, same tickets across two
+consecutive full sweeps (2026-08-23):
+- T049: sweep A produced 0.425 (no_confident_match), then 0.75 (ok), then 0.715 (ok) -> RESOLVED.
+        sweep B produced 0.369 (no_confident_match), then 0.454 (no_confident_match) -> ESCALATED.
+- T055: sweep A 0.412 (no_confident_match) then 0.75 (ok); sweep B 0.621 (ok).
+- T050: sweep A 0.80 (ok); sweep B 0.742 (ok).
+
+Because the corpus and embedding model don't change between sweeps, this is not embedding noise.
+The variable is the QUERY the agent formulates before calling search_runbooks, which is
+model-generated and nondeterministic. The same ticket yields best-chunk scores spanning roughly
+0.37 to 0.75 depending on phrasing, and rag/retrieve.py's SCORE_THRESHOLD of 0.50 sits in the
+MIDDLE of that band — so for these tickets the gate's pass/fail outcome is decided by query
+wording rather than by whether a correct runbook actually exists in the corpus. T049 resolved and
+escalated on consecutive sweeps with no code change between them beyond unrelated fixes.
+
+Open question, not resolved here: whether a single hard threshold at 0.50 is the right gate when
+the same ticket's score swings by roughly ±0.30 run to run. Candidate alternatives, none adopted:
+retry search_runbooks with a reformulated query before declaring no_confident_match; take the best
+score across several phrasings rather than the first; or treat the score as a soft signal that
+feeds overall confidence rather than a hard yes/no gate. This connects to the earlier, narrower
+observation that T015's escalation was never enforced by design — it depended on the agent
+happening to phrase a query that scored 0.43 — which this generalises from a single-ticket
+anecdote into a corpus-wide property of the retrieval gate. SCORE_THRESHOLD is left unchanged
+pending a decision.
+
 Threat model: the attacker is anyone who can influence ticket text, log content, or (if you extend the corpus) runbook content — i.e., indirect prompt injection via data the agent is supposed to read. The defense is architectural (tool-output ≠ instruction, permission tiers enforced outside the LLM) rather than purely prompt-based, because prompt-only defenses are known to be unreliable.
 
 
