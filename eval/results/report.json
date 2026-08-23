@@ -1,0 +1,2159 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "n_tickets_scored": 63,
+    "earliest_started_at": "2026-08-23T20:19:51.318510Z",
+    "latest_started_at": "2026-08-23T21:19:14.076112Z"
+  },
+  "rate_card": {
+    "provider": "Baseten (openai/gpt-oss-120b, rates confirmed == Groq card by project owner on 2026-08-23)",
+    "used": true
+  },
+  "safety": {
+    "status": "PARTIAL",
+    "reason": null,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 1,
+    "exit_code": 0,
+    "total_run": 4,
+    "enforced_total": 3,
+    "unauthorized_write_block_rate": "3/3 enforced tests passed (0 failed)",
+    "skipped_note": "1 test skipped: injection placeholder (adversarial ticket set not built)",
+    "injection_block_rate": "NOT COMPUTED (adversarial ticket set not yet built -- see PROGRESS.md)"
+  },
+  "summary": "This report scores 63 raw ticket result(s). task_success_status_only is 59/63 (93.7%); task_success_strict_lexical is 13/63 (20.6%). 4 ticket(s) fall into documented known-issue buckets, 0 known-issue entries no longer reproduce (stale), and 0 failure(s) are unexplained. 0 ticket(s) crashed. Safety gate status: PARTIAL.",
+  "task_success": {
+    "task_success_status_only": {
+      "n_success": 59,
+      "n_total": 63,
+      "rate": 0.9365079365079365
+    },
+    "task_success_strict_lexical": {
+      "n_success": 13,
+      "n_total": 63,
+      "rate": 0.20634920634920634
+    },
+    "hypothesis_semantic": "PENDING (Session 9b)",
+    "gap_explanation": "46 ticket(s) reached the status-only success bar (status==resolved or correctly escalated) but failed the strict-lexical check -- their hypothesis text did not literally contain every significant token of gold_root_cause (see hypothesis_matches_gold's documented false-negative classes). This produces a 73.0-point gap between the two measures (59/63 vs 13/63)."
+  },
+  "category_breakdown": {
+    "easy": {
+      "n": 15,
+      "task_success_status_only": {
+        "n_success": 13,
+        "rate": 0.8666666666666667
+      },
+      "task_success_strict_lexical": {
+        "n_success": 1,
+        "rate": 0.06666666666666667
+      }
+    },
+    "multi_step": {
+      "n": 20,
+      "task_success_status_only": {
+        "n_success": 18,
+        "rate": 0.9
+      },
+      "task_success_strict_lexical": {
+        "n_success": 1,
+        "rate": 0.05
+      }
+    },
+    "tool_heavy": {
+      "n": 10,
+      "task_success_status_only": {
+        "n_success": 10,
+        "rate": 1.0
+      },
+      "task_success_strict_lexical": {
+        "n_success": 0,
+        "rate": 0.0
+      }
+    },
+    "rag_heavy": {
+      "n": 8,
+      "task_success_status_only": {
+        "n_success": 8,
+        "rate": 1.0
+      },
+      "task_success_strict_lexical": {
+        "n_success": 1,
+        "rate": 0.125
+      }
+    },
+    "ambiguous": {
+      "n": 10,
+      "task_success_status_only": {
+        "n_success": 10,
+        "rate": 1.0
+      },
+      "task_success_strict_lexical": {
+        "n_success": 10,
+        "rate": 1.0
+      }
+    }
+  },
+  "known_issues": [
+    {
+      "ticket_id": "T019",
+      "known_issue_id": "T019",
+      "documented_cause": "asks user instead of investigating"
+    },
+    {
+      "ticket_id": "T025",
+      "known_issue_id": "T025,T029",
+      "documented_cause": "loop-guard recovery"
+    },
+    {
+      "ticket_id": "T029",
+      "known_issue_id": "T025,T029",
+      "documented_cause": "loop-guard recovery"
+    },
+    {
+      "ticket_id": "T039",
+      "known_issue_id": "T039",
+      "documented_cause": "retrieval-score variance"
+    }
+  ],
+  "stale_known_issues": [],
+  "unexplained_failures": [],
+  "crashed": {
+    "n": 0,
+    "tickets": []
+  },
+  "efficiency": {
+    "llm_call_count": {
+      "mean": 8.857142857142858,
+      "p50": 7,
+      "p95": 16,
+      "n": 63
+    },
+    "tool_call_count": {
+      "mean": 3.857142857142857,
+      "p50": 3,
+      "p95": 8,
+      "n": 63
+    },
+    "total_tokens_in": {
+      "mean": 18744.619047619046,
+      "p50": 13314,
+      "p95": 40969,
+      "n": 63
+    },
+    "total_tokens_out": {
+      "mean": 2531.1746031746034,
+      "p50": 1988,
+      "p95": 5391,
+      "n": 63
+    },
+    "wall_clock_seconds": {
+      "mean": 35.02677777777778,
+      "p50": 28.581,
+      "p95": 64.602,
+      "n": 63
+    },
+    "estimated_cost_usd": {
+      "mean": 0.004330397619047619,
+      "p50": 0.0031635000000000005,
+      "p95": 0.00935925,
+      "n": 63
+    }
+  },
+  "tool_use": {
+    "tool_selection_accuracy": {
+      "mean": 0.964516129032258,
+      "n": 62
+    },
+    "unnecessary_tool_calls_total": 11,
+    "parameter_validity": {
+      "observed_failures": 0,
+      "total_calls": 243,
+      "measurable": false,
+      "note": "measurable=False by design (see eval/metrics.parameter_validity docstring) -- this is a raw failure count, NEVER a percentage, and is NOT a validated 100% figure."
+    }
+  },
+  "state_tracking": {
+    "state_consistency": {
+      "n_true": 63,
+      "n": 63,
+      "rate": 1.0
+    },
+    "write_gate_appended_correctly": {
+      "n_true": 47,
+      "n": 49,
+      "rate": 0.9591836734693877,
+      "note": "N/A tickets (never reached the write gate) excluded from n/rate."
+    }
+  },
+  "rag": {
+    "retrieval_recall_at_3_observed": {
+      "n_true": 49,
+      "n": 49,
+      "rate": 1.0
+    },
+    "citation_presence_rate": {
+      "n_true": 49,
+      "n": 49,
+      "rate": 1.0
+    },
+    "retrieval_recall_at_3_corpus": null
+  },
+  "stale_gold_warnings": [],
+  "missing_gold_tickets": [],
+  "per_ticket": [
+    {
+      "ticket_id": "T001",
+      "category": "easy",
+      "started_at": "2026-08-23T20:19:51.318510Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13220,
+        "total_tokens_out": 1841,
+        "wall_clock_seconds": 19.168,
+        "estimated_cost_usd": 0.0030876
+      }
+    },
+    {
+      "ticket_id": "T002",
+      "category": "easy",
+      "started_at": "2026-08-23T20:20:10.490638Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13168,
+        "total_tokens_out": 1817,
+        "wall_clock_seconds": 7.87,
+        "estimated_cost_usd": 0.0030654
+      }
+    },
+    {
+      "ticket_id": "T003",
+      "category": "easy",
+      "started_at": "2026-08-23T20:20:18.364189Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 12951,
+        "total_tokens_out": 1490,
+        "wall_clock_seconds": 28.002,
+        "estimated_cost_usd": 0.00283665
+      }
+    },
+    {
+      "ticket_id": "T004",
+      "category": "easy",
+      "started_at": "2026-08-23T20:20:46.369756Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 2,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 5,
+        "tool_call_count": 2,
+        "total_tokens_in": 8441,
+        "total_tokens_out": 1775,
+        "wall_clock_seconds": 25.373,
+        "estimated_cost_usd": 0.0023311499999999997
+      }
+    },
+    {
+      "ticket_id": "T005",
+      "category": "easy",
+      "started_at": "2026-08-23T20:21:11.746683Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 3,
+        "total_tokens_in": 21261,
+        "total_tokens_out": 2959,
+        "wall_clock_seconds": 38.734,
+        "estimated_cost_usd": 0.00496455
+      }
+    },
+    {
+      "ticket_id": "T006",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:21:50.484760Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13161,
+        "total_tokens_out": 2119,
+        "wall_clock_seconds": 29.152,
+        "estimated_cost_usd": 0.00324555
+      }
+    },
+    {
+      "ticket_id": "T007",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:22:19.640417Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13526,
+        "total_tokens_out": 2027,
+        "wall_clock_seconds": 27.408,
+        "estimated_cost_usd": 0.0032451
+      }
+    },
+    {
+      "ticket_id": "T008",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:22:47.052083Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 5,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 12,
+        "tool_call_count": 5,
+        "total_tokens_in": 27604,
+        "total_tokens_out": 3570,
+        "wall_clock_seconds": 46.776,
+        "estimated_cost_usd": 0.006282599999999999
+      }
+    },
+    {
+      "ticket_id": "T009",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:23:33.831532Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13118,
+        "total_tokens_out": 1812,
+        "wall_clock_seconds": 28.192,
+        "estimated_cost_usd": 0.0030548999999999997
+      }
+    },
+    {
+      "ticket_id": "T010",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:24:02.027201Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13358,
+        "total_tokens_out": 1834,
+        "wall_clock_seconds": 28.452,
+        "estimated_cost_usd": 0.0031040999999999994
+      }
+    },
+    {
+      "ticket_id": "T011",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:24:30.483190Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": false,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 8,
+        "tool_call_count": 4,
+        "total_tokens_in": 15746,
+        "total_tokens_out": 2406,
+        "wall_clock_seconds": 32.489,
+        "estimated_cost_usd": 0.0038055
+      }
+    },
+    {
+      "ticket_id": "T012",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:25:02.975777Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13261,
+        "total_tokens_out": 1801,
+        "wall_clock_seconds": 27.576,
+        "estimated_cost_usd": 0.0030697499999999996
+      }
+    },
+    {
+      "ticket_id": "T013",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:25:30.555489Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13261,
+        "total_tokens_out": 1827,
+        "wall_clock_seconds": 27.143,
+        "estimated_cost_usd": 0.0030853499999999997
+      }
+    },
+    {
+      "ticket_id": "T014",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T20:25:57.701865Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 2,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 4,
+        "tool_call_count": 2,
+        "total_tokens_in": 5628,
+        "total_tokens_out": 842,
+        "wall_clock_seconds": 16.95,
+        "estimated_cost_usd": 0.0013494
+      }
+    },
+    {
+      "ticket_id": "T015",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T20:26:14.654368Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 0.875,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 41386,
+        "total_tokens_out": 5757,
+        "wall_clock_seconds": 64.385,
+        "estimated_cost_usd": 0.0096621
+      }
+    },
+    {
+      "ticket_id": "T016",
+      "category": "easy",
+      "started_at": "2026-08-23T20:27:19.044207Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13127,
+        "total_tokens_out": 1931,
+        "wall_clock_seconds": 27.409,
+        "estimated_cost_usd": 0.00312765
+      }
+    },
+    {
+      "ticket_id": "T017",
+      "category": "easy",
+      "started_at": "2026-08-23T20:27:46.456833Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 21119,
+        "total_tokens_out": 2748,
+        "wall_clock_seconds": 40.589,
+        "estimated_cost_usd": 0.00481665
+      }
+    },
+    {
+      "ticket_id": "T018",
+      "category": "easy",
+      "started_at": "2026-08-23T20:28:27.049596Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13018,
+        "total_tokens_out": 1991,
+        "wall_clock_seconds": 27.934,
+        "estimated_cost_usd": 0.0031473
+      }
+    },
+    {
+      "ticket_id": "T019",
+      "category": "easy",
+      "started_at": "2026-08-23T20:28:54.986701Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "known_issue",
+      "known_issue_id": "T019",
+      "documented_cause": "asks user instead of investigating",
+      "task_success_status_only": false,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": null,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 0,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 4,
+        "tool_call_count": 0,
+        "total_tokens_in": 5253,
+        "total_tokens_out": 989,
+        "wall_clock_seconds": 14.791,
+        "estimated_cost_usd": 0.00138135
+      }
+    },
+    {
+      "ticket_id": "T020",
+      "category": "easy",
+      "started_at": "2026-08-23T20:29:09.780656Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 13,
+        "tool_call_count": 4,
+        "total_tokens_in": 30914,
+        "total_tokens_out": 4542,
+        "wall_clock_seconds": 52.855,
+        "estimated_cost_usd": 0.0073623000000000004
+      }
+    },
+    {
+      "ticket_id": "T021",
+      "category": "easy",
+      "started_at": "2026-08-23T20:30:02.639470Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13022,
+        "total_tokens_out": 1744,
+        "wall_clock_seconds": 27.759,
+        "estimated_cost_usd": 0.0029997
+      }
+    },
+    {
+      "ticket_id": "T022",
+      "category": "easy",
+      "started_at": "2026-08-23T20:30:30.401664Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13007,
+        "total_tokens_out": 1649,
+        "wall_clock_seconds": 28.721,
+        "estimated_cost_usd": 0.00294045
+      }
+    },
+    {
+      "ticket_id": "T023",
+      "category": "easy",
+      "started_at": "2026-08-23T20:30:59.127115Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.8,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 5,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 11,
+        "tool_call_count": 5,
+        "total_tokens_in": 25532,
+        "total_tokens_out": 3285,
+        "wall_clock_seconds": 43.373,
+        "estimated_cost_usd": 0.0058008
+      }
+    },
+    {
+      "ticket_id": "T024",
+      "category": "easy",
+      "started_at": "2026-08-23T20:31:42.503443Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": false,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 8,
+        "tool_call_count": 4,
+        "total_tokens_in": 15859,
+        "total_tokens_out": 2497,
+        "wall_clock_seconds": 31.503,
+        "estimated_cost_usd": 0.00387705
+      }
+    },
+    {
+      "ticket_id": "T025",
+      "category": "easy",
+      "started_at": "2026-08-23T20:32:14.010328Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "known_issue",
+      "known_issue_id": "T025,T029",
+      "documented_cause": "loop-guard recovery",
+      "task_success_status_only": false,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.875,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 43867,
+        "total_tokens_out": 5797,
+        "wall_clock_seconds": 64.986,
+        "estimated_cost_usd": 0.010058250000000001
+      }
+    },
+    {
+      "ticket_id": "T026",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:33:19.000602Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13274,
+        "total_tokens_out": 1988,
+        "wall_clock_seconds": 27.691,
+        "estimated_cost_usd": 0.0031839
+      }
+    },
+    {
+      "ticket_id": "T027",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:33:46.694607Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 13,
+        "tool_call_count": 4,
+        "total_tokens_in": 29930,
+        "total_tokens_out": 4569,
+        "wall_clock_seconds": 51.429,
+        "estimated_cost_usd": 0.0072309
+      }
+    },
+    {
+      "ticket_id": "T028",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:34:38.127572Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13046,
+        "total_tokens_out": 2011,
+        "wall_clock_seconds": 28.708,
+        "estimated_cost_usd": 0.0031635000000000005
+      }
+    },
+    {
+      "ticket_id": "T029",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:35:06.839357Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "known_issue",
+      "known_issue_id": "T025,T029",
+      "documented_cause": "loop-guard recovery",
+      "task_success_status_only": false,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 43818,
+        "total_tokens_out": 4486,
+        "wall_clock_seconds": 64.126,
+        "estimated_cost_usd": 0.0092643
+      }
+    },
+    {
+      "ticket_id": "T030",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:36:10.969969Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13032,
+        "total_tokens_out": 1871,
+        "wall_clock_seconds": 27.872,
+        "estimated_cost_usd": 0.0030774
+      }
+    },
+    {
+      "ticket_id": "T031",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:36:38.845187Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13169,
+        "total_tokens_out": 1720,
+        "wall_clock_seconds": 28.358,
+        "estimated_cost_usd": 0.0030073499999999998
+      }
+    },
+    {
+      "ticket_id": "T032",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:37:07.206570Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13123,
+        "total_tokens_out": 1842,
+        "wall_clock_seconds": 27.894,
+        "estimated_cost_usd": 0.00307365
+      }
+    },
+    {
+      "ticket_id": "T033",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:37:35.104517Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 20925,
+        "total_tokens_out": 2635,
+        "wall_clock_seconds": 39.178,
+        "estimated_cost_usd": 0.00471975
+      }
+    },
+    {
+      "ticket_id": "T034",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:38:14.285429Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 20432,
+        "total_tokens_out": 2825,
+        "wall_clock_seconds": 41.105,
+        "estimated_cost_usd": 0.0047598
+      }
+    },
+    {
+      "ticket_id": "T035",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:38:55.393617Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13392,
+        "total_tokens_out": 2179,
+        "wall_clock_seconds": 27.497,
+        "estimated_cost_usd": 0.0033162
+      }
+    },
+    {
+      "ticket_id": "T036",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:39:22.894196Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13134,
+        "total_tokens_out": 1785,
+        "wall_clock_seconds": 27.704,
+        "estimated_cost_usd": 0.0030410999999999997
+      }
+    },
+    {
+      "ticket_id": "T037",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:39:50.601323Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13061,
+        "total_tokens_out": 1736,
+        "wall_clock_seconds": 28.306,
+        "estimated_cost_usd": 0.00300075
+      }
+    },
+    {
+      "ticket_id": "T038",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:40:18.911174Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 8,
+        "tool_call_count": 3,
+        "total_tokens_in": 14525,
+        "total_tokens_out": 2153,
+        "wall_clock_seconds": 31.512,
+        "estimated_cost_usd": 0.0034705499999999993
+      }
+    },
+    {
+      "ticket_id": "T039",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:40:50.426809Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "known_issue",
+      "known_issue_id": "T039",
+      "documented_cause": "retrieval-score variance",
+      "task_success_status_only": false,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 19332,
+        "total_tokens_out": 2623,
+        "wall_clock_seconds": 39.916,
+        "estimated_cost_usd": 0.0044735999999999995
+      }
+    },
+    {
+      "ticket_id": "T040",
+      "category": "multi_step",
+      "started_at": "2026-08-23T20:41:30.346197Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 12956,
+        "total_tokens_out": 1761,
+        "wall_clock_seconds": 28.328,
+        "estimated_cost_usd": 0.003
+      }
+    },
+    {
+      "ticket_id": "T041",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:41:58.677060Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 8,
+        "tool_call_count": 3,
+        "total_tokens_in": 14793,
+        "total_tokens_out": 1860,
+        "wall_clock_seconds": 32.049,
+        "estimated_cost_usd": 0.0033349499999999997
+      }
+    },
+    {
+      "ticket_id": "T042",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:42:30.730350Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 9,
+        "tool_call_count": 4,
+        "total_tokens_in": 18821,
+        "total_tokens_out": 2376,
+        "wall_clock_seconds": 35.318,
+        "estimated_cost_usd": 0.00424875
+      }
+    },
+    {
+      "ticket_id": "T043",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:43:06.051658Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 9,
+        "tool_call_count": 4,
+        "total_tokens_in": 18664,
+        "total_tokens_out": 2785,
+        "wall_clock_seconds": 36.294,
+        "estimated_cost_usd": 0.0044706
+      }
+    },
+    {
+      "ticket_id": "T044",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:43:42.348823Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13358,
+        "total_tokens_out": 1771,
+        "wall_clock_seconds": 27.421,
+        "estimated_cost_usd": 0.0030662999999999997
+      }
+    },
+    {
+      "ticket_id": "T045",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:44:09.772602Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 0.75,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 20715,
+        "total_tokens_out": 2611,
+        "wall_clock_seconds": 40.03,
+        "estimated_cost_usd": 0.00467385
+      }
+    },
+    {
+      "ticket_id": "T046",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:44:49.806406Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 9,
+        "tool_call_count": 4,
+        "total_tokens_in": 18546,
+        "total_tokens_out": 2540,
+        "wall_clock_seconds": 36.752,
+        "estimated_cost_usd": 0.0043059
+      }
+    },
+    {
+      "ticket_id": "T047",
+      "category": "tool_heavy",
+      "started_at": "2026-08-23T20:45:26.561506Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13181,
+        "total_tokens_out": 1932,
+        "wall_clock_seconds": 28.096,
+        "estimated_cost_usd": 0.00313635
+      }
+    },
+    {
+      "ticket_id": "T048",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T20:45:54.660212Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13172,
+        "total_tokens_out": 1767,
+        "wall_clock_seconds": 27.681,
+        "estimated_cost_usd": 0.0030359999999999996
+      }
+    },
+    {
+      "ticket_id": "T049",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:10:01.492913Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 4,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 10,
+        "tool_call_count": 4,
+        "total_tokens_in": 20539,
+        "total_tokens_out": 2729,
+        "wall_clock_seconds": 58.864,
+        "estimated_cost_usd": 0.00471825
+      }
+    },
+    {
+      "ticket_id": "T050",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:11:00.360386Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13104,
+        "total_tokens_out": 1918,
+        "wall_clock_seconds": 8.376,
+        "estimated_cost_usd": 0.0031163999999999996
+      }
+    },
+    {
+      "ticket_id": "T051",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:11:08.741947Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 2,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 5,
+        "tool_call_count": 2,
+        "total_tokens_in": 8634,
+        "total_tokens_out": 1615,
+        "wall_clock_seconds": 20.722,
+        "estimated_cost_usd": 0.0022641
+      }
+    },
+    {
+      "ticket_id": "T052",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:11:29.467558Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13280,
+        "total_tokens_out": 1794,
+        "wall_clock_seconds": 28.581,
+        "estimated_cost_usd": 0.0030683999999999998
+      }
+    },
+    {
+      "ticket_id": "T053",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:11:58.051982Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13271,
+        "total_tokens_out": 1686,
+        "wall_clock_seconds": 26.833,
+        "estimated_cost_usd": 0.0030022499999999997
+      }
+    },
+    {
+      "ticket_id": "T054",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:12:24.887971Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13251,
+        "total_tokens_out": 1938,
+        "wall_clock_seconds": 29.185,
+        "estimated_cost_usd": 0.00315045
+      }
+    },
+    {
+      "ticket_id": "T055",
+      "category": "rag_heavy",
+      "started_at": "2026-08-23T21:12:54.075842Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": false,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 3,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": true,
+      "retrieval_recall_at_3_observed": true,
+      "citation_presence": true,
+      "efficiency": {
+        "llm_call_count": 7,
+        "tool_call_count": 3,
+        "total_tokens_in": 13314,
+        "total_tokens_out": 1865,
+        "wall_clock_seconds": 26.773,
+        "estimated_cost_usd": 0.0031161
+      }
+    },
+    {
+      "ticket_id": "T056",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:13:20.851428Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 40969,
+        "total_tokens_out": 4394,
+        "wall_clock_seconds": 64.602,
+        "estimated_cost_usd": 0.00878175
+      }
+    },
+    {
+      "ticket_id": "T057",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:14:25.457998Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 2,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 4,
+        "tool_call_count": 2,
+        "total_tokens_in": 5631,
+        "total_tokens_out": 1026,
+        "wall_clock_seconds": 15.048,
+        "estimated_cost_usd": 0.00146025
+      }
+    },
+    {
+      "ticket_id": "T058",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:14:40.508915Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 40523,
+        "total_tokens_out": 4856,
+        "wall_clock_seconds": 65.706,
+        "estimated_cost_usd": 0.00899205
+      }
+    },
+    {
+      "ticket_id": "T059",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:15:46.219824Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 2,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 4,
+        "tool_call_count": 2,
+        "total_tokens_in": 5604,
+        "total_tokens_out": 1006,
+        "wall_clock_seconds": 14.952,
+        "estimated_cost_usd": 0.0014441999999999999
+      }
+    },
+    {
+      "ticket_id": "T060",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:16:01.174185Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 0.875,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 40059,
+        "total_tokens_out": 4773,
+        "wall_clock_seconds": 64.149,
+        "estimated_cost_usd": 0.00887265
+      }
+    },
+    {
+      "ticket_id": "T061",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:17:05.330171Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 39176,
+        "total_tokens_out": 3946,
+        "wall_clock_seconds": 64.114,
+        "estimated_cost_usd": 0.008244
+      }
+    },
+    {
+      "ticket_id": "T062",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:18:09.448229Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 0.875,
+      "unnecessary_tool_calls": 1,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 40518,
+        "total_tokens_out": 5651,
+        "wall_clock_seconds": 64.624,
+        "estimated_cost_usd": 0.009468299999999999
+      }
+    },
+    {
+      "ticket_id": "T063",
+      "category": "ambiguous",
+      "started_at": "2026-08-23T21:19:14.076112Z",
+      "crashed": false,
+      "runner_error": null,
+      "bucket": "success",
+      "known_issue_id": null,
+      "documented_cause": null,
+      "task_success_status_only": true,
+      "task_success_strict_lexical": true,
+      "tool_selection_accuracy": 1.0,
+      "unnecessary_tool_calls": 0,
+      "parameter_validity": {
+        "observed_failures": 0,
+        "total_calls": 8,
+        "measurable": false
+      },
+      "state_consistency": true,
+      "write_gate_appended_correctly": null,
+      "retrieval_recall_at_3_observed": null,
+      "citation_presence": null,
+      "efficiency": {
+        "llm_call_count": 16,
+        "tool_call_count": 8,
+        "total_tokens_in": 40831,
+        "total_tokens_out": 5391,
+        "wall_clock_seconds": 63.303,
+        "estimated_cost_usd": 0.00935925
+      }
+    }
+  ]
+}

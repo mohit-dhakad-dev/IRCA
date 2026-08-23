@@ -337,8 +337,13 @@ written by eval/run_benchmark.py (Part A).
 - per ticket: llm_call_count, tool_call_count, total_tokens_in/out, wall_clock_seconds, 
   estimated_cost_usd (the serving provider is configurable via LLM_BASE_URL, so this must use
   the rate card of whichever provider actually served the run, not a fixed Groq rate card.
-  Baseten has served every sweep since the data expansion, and no Baseten rate card is on
-  file, so cost is currently UNCOMPUTED for those sweeps rather than estimated)
+  Baseten has served every sweep since the data expansion; its rates were confirmed by the
+  project owner on 2026-08-23 to match the original Groq card at $0.15/$0.60 per million
+  input/output tokens, so cost IS computed for those sweeps. eval/report.py keys the rate
+  card off LLM_BASE_URL and prints which card it used, because every dollar figure in this
+  project's log was once computed against the wrong provider's rates -- a reader must be able
+  to see where the rate came from, not just the number. Any provider not on file still renders
+  UNCOMPUTED rather than falling back to a default)
 - aggregate: mean/p50/p95 across all 63
 
 
