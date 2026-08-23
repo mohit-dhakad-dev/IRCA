@@ -13,3 +13,6 @@ eval/results/raw/*.json
 eval/results/runs/
 !eval/results/report.md
 !eval/results/report.json
+
+# transient sweep logs
+.sweep*.log
