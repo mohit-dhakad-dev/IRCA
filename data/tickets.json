@@ -535,8 +535,8 @@
     "gold_runbook_id": "RB-MEMORY-001.md",
     "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
     "min_confidence_evidence_sources": 2,
-    "expected_behavior": "escalate",
-    "notes": "Intentional retrieval-failure case: scores ~0.20-0.37, below the 0.5 gate, so search_runbooks returns no_confident_match and the run is expected to escalate. Avoided 'maxmemory' and 'evicted' from RB-MEMORY-001; described the effect as the fast layer filling up and discarding entries."
+    "expected_behavior": "resolve_with_approval",
+    "notes": "STALE LABEL, corrected 2026-08-23: this ticket's low score (~0.37) only measures search_runbooks retrieval on the raw ticket_text, which the agent never actually queries with. In the 2026-08-23 sweep, search_runbooks first returned no_confident_match (0.48) on an initial query, then a reworded query built from observed tool vocabulary hit RB-MEMORY-001 (its own gold runbook) at 0.94. The run RESOLVED with approval queued, citation RB-MEMORY-001. The original 'intentional retrieval-failure' premise is dead for the same reason as T055: it was only ever true of ticket text, not of what the agent queries with."
   },
   {
     "id": "T050",
@@ -546,8 +546,8 @@
     "gold_runbook_id": "RB-NETWORK-001.md",
     "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
     "min_confidence_evidence_sources": 2,
-    "expected_behavior": "escalate",
-    "notes": "Intentional retrieval-failure case: scores ~0.20-0.37, below the 0.5 gate, so search_runbooks returns no_confident_match and the run is expected to escalate. Avoided 'ingress' and 'queue depth' from RB-NETWORK-001; described the symptom as no room to hold waiting visitors at the door."
+    "expected_behavior": "resolve_with_approval",
+    "notes": "STALE LABEL, corrected 2026-08-23: this ticket's low score (~0.37) only measures search_runbooks retrieval on raw ticket_text, which the agent never queries with. In the 2026-08-23 sweep, search_runbooks matched RB-NETWORK-001 (its own gold runbook) at 0.73 when queried with observed vocabulary, and the run passed ALL SIX _can_resolve gates (confidence 0.9, >=2 evidence sources, an observational source, the runbook credited, a citation present, and the citation grounded). It escalated ONLY because the write gate rejected two proposed fixes with verification_failed, due to a UNIT-SAFETY BUG in agent/approval.py's constraint parser: RB-NETWORK-001's bullet 'Keep backend connection count below 70-80% of the ingress process or LB connection ceiling' yields a bound of '70 (no unit)', so a generic 'below N' pattern strips the % and an absolute connection count gets compared against a percentage-derived bound (reproduced: verify_against_constraints('Raise max_connections to 500 and add a second replica', 'RB-NETWORK-001') -> 'Proposed fix value 500 (no unit) exceeds the max bound 70 (no unit)'; same '(no unit)' family as T011). The old 'escalate' label matched this ticket's outcome by coincidence, via the wrong mechanism entirely. Until the constraint-parser bug is fixed, T050 will COUNT AS A FAILURE in eval against this corrected label -- intentionally: a real bug should show as a failure, not be hidden behind a label that happens to match."
   },
   {
     "id": "T051",

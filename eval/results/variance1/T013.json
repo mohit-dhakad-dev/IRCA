@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "ticket_id": "T013",
+  "run": {
+    "started_at": "2026-08-23T18:32:12.316503Z",
+    "wall_clock_seconds": 9.445,
+    "runner_error": null
+  },
+  "ticket": {
+    "category": "tool_heavy",
+    "gold_root_cause": "deploy_healthcheck_misconfiguration",
+    "gold_runbook_id": "RB-DEPLOY-001.md",
+    "required_tools": [
+      "query_logs",
+      "query_metrics",
+      "search_runbooks"
+    ],
+    "expected_behavior": "resolve_with_approval",
+    "min_confidence_evidence_sources": 2
+  },
+  "state": {
+    "ticket_id": "T013",
+    "description": "A canary rollout is stuck because the app container does not report ready, even though the process started successfully. Our probes time out, and the deployment is never progressing past the first replica.",
+    "status": "escalated",
+    "plan": [],
+    "hypothesis": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+    "confidence": 0.85,
+    "evidence_sources": [
+      "query_logs",
+      "query_metrics",
+      "search_runbooks"
+    ],
+    "citations": [
+      "RB-DEPLOY-001"
+    ],
+    "iteration": 3,
+    "max_iterations": 8,
+    "trajectory": [
+      {
+        "iteration": 0,
+        "thought": "",
+        "tool_call": {
+          "name": "query_logs",
+          "arguments": {
+            "service": "app",
+            "window": "30m",
+            "level": "ERROR",
+            "ticket_id": "T013"
+          }
+        },
+        "observation": {
+          "status": "ok",
+          "data": {
+            "service": "app",
+            "window": "30m",
+            "level": "ERROR",
+            "total_matched": 325,
+            "pattern_counts": {
+              "<ts> <service>: readiness probe failed: connection refused": 223,
+              "<ts> <service>: probe failed: HTTP 503": 48,
+              "<ts> <service>: pod marked CrashLoopBackOff after repeated restarts": 54
+            },
+            "lines": [
+              {
+                "timestamp": "2025-06-01T09:00:00",
+                "level": "ERROR",
+                "service": "app",
+                "message": "2025-06-01T09:00:00 app: readiness probe failed: connection refused"
+              },
+              {
+                "timestamp": "2025-06-01T08:57:00",
+                "level": "ERROR",
+                "service": "app",
+                "message": "2025-06-01T08:57:00 app: readiness probe failed: connection refused"
+              },
+              {
+                "timestamp": "2025-06-01T08:54:00",
+                "level": "ERROR",
+                "service": "app",
+                "message": "2025-06-01T08:54:00 app: readiness probe failed: connection refused"
+              },
+              {
+                "timestamp": "2025-06-01T08:51:00",
+                "level": "ERROR",
+                "service": "app",
+                "message": "2025-06-01T08:51:00 app: readiness probe failed: connection refused"
+              },
+              {
+                "timestamp": "2025-06-01T08:48:00",
+                "level": "ERROR",
+                "service": "app",
+                "message": "2025-06-01T08:48:00 app: probe failed: HTTP 503"
+              }
+            ]
+          },
+          "summary": "Found 325 ERROR lines for app in the last 30m; 69% match 'readiness probe failed: connection refused'."
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+        "no_new_info": false
+      },
+      {
+        "iteration": 1,
+        "thought": "",
+        "tool_call": {
+          "name": "query_metrics",
+          "arguments": {
+            "service": "app",
+            "metric": "readiness_probe_success_rate",
+            "window": "1h",
+            "ticket_id": "T013"
+          }
+        },
+        "observation": {
+          "status": "ok",
+          "data": {
+            "service": "app",
+            "metric": "readiness_probe_success_rate",
+            "window": "1h",
+            "unit": "percent",
+            "capacity_max": 100.0,
+            "points": [
+              {
+                "t": "2025-06-01T08:05:00",
+                "value": 96.35
+              },
+              {
+                "t": "2025-06-01T08:10:00",
+                "value": 95.59
+              },
+              {
+                "t": "2025-06-01T08:15:00",
+                "value": 97.23
+              },
+              {
+                "t": "2025-06-01T08:20:00",
+                "value": 99.42
+              },
+              {
+                "t": "2025-06-01T08:25:00",
+                "value": 10.61
+              },
+              {
+                "t": "2025-06-01T08:30:00",
+                "value": 3.6
+              },
+              {
+                "t": "2025-06-01T08:35:00",
+                "value": 9.76
+              },
+              {
+                "t": "2025-06-01T08:40:00",
+                "value": 11.14
+              },
+              {
+                "t": "2025-06-01T08:45:00",
+                "value": 3.67
+              },
+              {
+                "t": "2025-06-01T08:50:00",
+                "value": 11.96
+              },
+              {
+                "t": "2025-06-01T08:55:00",
+                "value": 4.57
+              },
+              {
+                "t": "2025-06-01T09:00:00",
+                "value": 10.99
+              }
+            ],
+            "min": 3.6,
+            "max": 99.42,
+            "avg": 37.91,
+            "current": 10.99
+          },
+          "summary": "readiness_probe_success_rate for app collapsed to 10.99 percent (min 3.6) over 1h, down from a healthy baseline near 100 percent \u2014 well below the expected range."
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+        "no_new_info": false
+      },
+      {
+        "iteration": 2,
+        "thought": "",
+        "tool_call": {
+          "name": "search_runbooks",
+          "arguments": {
+            "query": "readiness probe failed connection refused container not listening port"
+          }
+        },
+        "observation": {
+          "status": "ok",
+          "data": {
+            "query": "readiness probe failed connection refused container not listening port",
+            "chunks": [
+              {
+                "doc_id": "RB-DEPLOY-001",
+                "section": "Diagnosis Steps",
+                "text": "Deployment Health Check Misconfiguration \u2014 Diagnosis Steps\n1. Review the deployment spec and confirm the readiness and liveness probe paths, ports, and timing values for the new release.\n2. Check whether the application takes longer than the configured `initialDelaySeconds` or `timeoutSeconds` to become ready after startup.\n3. Verify the probe endpoint is actually returning success on the container port, not a different service or an upstream dependency that is failing.\n4. Compare the new version's startup dependencies with the previous version to identify cases where DB migrations, warm-up jobs, or config changes increased boot time.\n5. Confirm whether the rollout is blocked by a bad health check rather than an app crash by checking the container logs for a clean process start followed by repeated readiness failures.",
+                "score": 0.5129
+              },
+              {
+                "doc_id": "RB-DEPLOY-001",
+                "section": "Symptoms",
+                "text": "Deployment Health Check Misconfiguration \u2014 Symptoms\n- The rollout stalls with pods marked `unready` or `CrashLoopBackOff` for several minutes after a deploy begins.\n- Readiness or liveness probes fail with `connection refused`, `HTTP 503`, or `probe failed` alerts in the pod logs.\n- User traffic is diverted away from the new version but the service never reaches a healthy state, leading to partial rollout or rollback.\n- Deployment dashboards show a sudden drop in successful startup count and an increase in restart loops.\n- Application logs show the process started normally but never passed the readiness gate after the new revision was launched.",
+                "score": 0.4644
+              },
+              {
+                "doc_id": "RB-DEPLOY-001",
+                "section": "Fix",
+                "text": "Deployment Health Check Misconfiguration \u2014 Fix\n- Update the readiness probe to match the service's actual startup behavior, including a realistic initial delay and a timeout threshold that reflects cold-start latency.\n- Ensure the probe path returns HTTP 200 only after dependencies are initialized, not before the service can safely accept traffic.\n- Re-run the deployment with a lower startup risk rollout strategy, such as a canary or a single-instance verification step.\n- If the deploy started before migrations completed, pause the rollout and fix the startup order or migration gate.\n- After the fix, validate pod readiness and successful traffic acceptance for at least two stable release windows.",
+                "score": 0.4569
+              }
+            ],
+            "top_score": 0.5129
+          },
+          "summary": "Top runbook matches for 'readiness probe failed connection refused container not listening port': RB-DEPLOY-001/Diagnosis Steps (0.51), RB-DEPLOY-001/Symptoms (0.46), RB-DEPLOY-001/Fix (0.46)."
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+        "no_new_info": false
+      },
+      {
+        "iteration": 3,
+        "thought": "Update the deployment\u2019s readiness probe to use an\u202finitialDelaySeconds\u202fof\u202f20\u202fseconds, a\u202ftimeoutSeconds\u202fof\u202f3\u202fseconds, and a\u202ffailureThreshold\u202fof\u202f3, then adjust the probe path so it returns HTTP\u202f200 only after the database and cache have finished warming up. Pause the rollout if any migrations are still pending, fix the startup order, and then re\u2011run the deployment using a low\u2011risk canary strategy. After the change, verify that the pod becomes ready and serves traffic for at least two stable release windows.",
+        "tool_call": {
+          "name": "update_ticket",
+          "arguments": {
+            "proposed_root_cause": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+            "proposed_fix": "Update the deployment\u2019s readiness probe to use an\u202finitialDelaySeconds\u202fof\u202f20\u202fseconds, a\u202ftimeoutSeconds\u202fof\u202f3\u202fseconds, and a\u202ffailureThreshold\u202fof\u202f3, then adjust the probe path so it returns HTTP\u202f200 only after the database and cache have finished warming up. Pause the rollout if any migrations are still pending, fix the startup order, and then re\u2011run the deployment using a low\u2011risk canary strategy. After the change, verify that the pod becomes ready and serves traffic for at least two stable release windows.",
+            "citation_doc_id": "RB-DEPLOY-001"
+          }
+        },
+        "observation": {
+          "status": "verification_failed",
+          "data": {
+            "reason": "Proposed fix value 20 seconds exceeds the max bound 5 seconds in RB-DEPLOY-001: \"- Keep readiness `timeoutSeconds` between 1 and 5 seconds; `failureThreshold` should not exceed 3 for a normally booting service.\"",
+            "citation_doc_id": "RB-DEPLOY-001"
+          },
+          "summary": "Proposed fix violates a constraint in the cited runbook 'RB-DEPLOY-001': Proposed fix value 20 seconds exceeds the max bound 5 seconds in RB-DEPLOY-001: \"- Keep readiness `timeoutSeconds` between 1 and 5 seconds; `failureThreshold` should not exceed 3 for a normally booting service.\" Nothing was queued for approval. Revise the fix or pick a different citation."
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready"
+      },
+      {
+        "iteration": 3,
+        "thought": "Update the pod spec to set the readiness probe\u202ftimeoutSeconds to\u202f5\u202fseconds,\u202ffailureThreshold\u202fto\u202f3, and\u202finitialDelaySeconds\u202fto\u202f15\u202fseconds; ensure the probe path returns HTTP\u202f200 only after the database and cache are fully initialized. Pause the rollout, verify any pending migrations have completed, and re\u2011run the deployment using a single\u2011instance canary strategy. After redeploy, validate that the pod becomes ready and traffic is accepted for at least two stable release windows.",
+        "tool_call": {
+          "name": "update_ticket",
+          "arguments": {
+            "proposed_root_cause": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready",
+            "proposed_fix": "Update the pod spec to set the readiness probe\u202ftimeoutSeconds to\u202f5\u202fseconds,\u202ffailureThreshold\u202fto\u202f3, and\u202finitialDelaySeconds\u202fto\u202f15\u202fseconds; ensure the probe path returns HTTP\u202f200 only after the database and cache are fully initialized. Pause the rollout, verify any pending migrations have completed, and re\u2011run the deployment using a single\u2011instance canary strategy. After redeploy, validate that the pod becomes ready and traffic is accepted for at least two stable release windows.",
+            "citation_doc_id": "RB-DEPLOY-001"
+          }
+        },
+        "observation": {
+          "status": "verification_failed",
+          "data": {
+            "reason": "Proposed fix value 15 seconds exceeds the max bound 5 seconds in RB-DEPLOY-001: \"- Keep readiness `timeoutSeconds` between 1 and 5 seconds; `failureThreshold` should not exceed 3 for a normally booting service.\"",
+            "citation_doc_id": "RB-DEPLOY-001"
+          },
+          "summary": "Proposed fix violates a constraint in the cited runbook 'RB-DEPLOY-001': Proposed fix value 15 seconds exceeds the max bound 5 seconds in RB-DEPLOY-001: \"- Keep readiness `timeoutSeconds` between 1 and 5 seconds; `failureThreshold` should not exceed 3 for a normally booting service.\" Nothing was queued for approval. Revise the fix or pick a different citation."
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready"
+      },
+      {
+        "iteration": 3,
+        "thought": "",
+        "tool_call": null,
+        "observation": {
+          "error": "Write rejected after 2 attempt(s); last reason: Proposed fix value 15 seconds exceeds the max bound 5 seconds in RB-DEPLOY-001: \"- Keep readiness `timeoutSeconds` between 1 and 5 seconds; `failureThreshold` should not exceed 3 for a normally booting service.\""
+        },
+        "hypothesis_after": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the pod from becoming ready"
+      }
+    ],
+    "pending_action_id": null
+  },
+  "usage": {
+    "llm_call_count": 8,
+    "total_tokens_in": 16722,
+    "total_tokens_out": 2109,
+    "per_call": [
+      {
+        "in": 1913,
+        "out": 160
+      },
+      {
+        "in": 976,
+        "out": 300
+      },
+      {
+        "in": 2406,
+        "out": 59
+      },
+      {
+        "in": 1318,
+        "out": 384
+      },
+      {
+        "in": 2935,
+        "out": 94
+      },
+      {
+        "in": 1527,
+        "out": 420
+      },
+      {
+        "in": 2786,
+        "out": 306
+      },
+      {
+        "in": 2861,
+        "out": 386
+      }
+    ]
+  }
+}
