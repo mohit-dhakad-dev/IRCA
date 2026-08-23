@@ -16,6 +16,13 @@ from rag.retrieve import search_runbooks
 from tools.log_tools import query_logs, query_metrics
 from tools.ticket_tools import update_ticket
 
+# update_ticket is intentionally still registered here (and in
+# TICKET_SCOPED_TOOLS below) even though agent/tool_schemas.py no longer
+# offers it to the model as a callable tool. The defenses in this module
+# (ticket_id injection, argument scoping) must still apply if it is ever
+# reached, and the unauthorized-write-block tests in
+# tests/test_tool_executor.py exercise exactly that path. Do not remove it
+# from this registry.
 TOOL_REGISTRY: dict[str, callable] = {
     "query_logs": query_logs,
     "query_metrics": query_metrics,

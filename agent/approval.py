@@ -233,38 +233,97 @@ def _subject_tokens(clause: str) -> set[str]:
 _Bound = tuple[str, float, str, frozenset, str]
 
 
-def _extract_bounds_from_clause(clause: str) -> list[tuple[str, float, str]]:
-    bounds: list[tuple[str, float, str]] = []
+def _comma_segments(clause: str) -> list[tuple[int, int, str]]:
+    """Split `clause` into comma-delimited (start, end, text) segments."""
+    segments: list[tuple[int, int, str]] = []
+    start = 0
+    for m in re.finditer(r",", clause):
+        segments.append((start, m.start(), clause[start:m.start()]))
+        start = m.end()
+    segments.append((start, len(clause), clause[start:]))
+    return segments
+
+
+def _local_subject_tokens(clause: str, pos: int) -> set[str]:
+    """Subject tokens for a bound match at `pos` within `clause`, scoped to
+    avoid leaking an unrelated, backtick-named parameter from an earlier
+    comma-separated "if ..." preamble into a later, textually distinct bound.
+
+    Example: "If a service has a `max_connections` limit of 500, avoid
+    sustained operation above 400 without scaling or tuning." -- the 400
+    bound is about "sustained operation", not about the `max_connections`
+    setting merely used to set the scene; if the preamble's backtick token
+    leaked in as a subject word, a fix that sets `max_connections` to some
+    unrelated value would be wrongly compared against the 400 bound. A
+    preceding segment is dropped only when it names a backtick-quoted
+    parameter of its own -- a plain-prose preamble (e.g. "If log rotation is
+    configured, cap ... at 100 MB ...") carries no such distinct parameter
+    identity and is still folded in, since it is legitimate context for the
+    bound that follows it."""
+    segments = _comma_segments(clause)
+    local_idx = len(segments) - 1
+    for i, (start, end, _) in enumerate(segments):
+        if start <= pos < end:
+            local_idx = i
+            break
+
+    kept = [
+        text
+        for i, (_, _, text) in enumerate(segments)
+        if i >= local_idx or "`" not in text
+    ]
+    return _subject_tokens(",".join(kept))
+
+
+def _extract_bounds_from_clause(clause: str) -> list[tuple[str, float, str, frozenset]]:
+    bounds: list[tuple[str, float, str, frozenset]] = []
+
+    # `masked` has any span already claimed by the between/hyphen-pct
+    # patterns blanked out before the generic max/min phrase patterns run.
+    # Without this, a clause like "below 70-80% of ..." matches BOTH the
+    # hyphen-pct pattern (correctly yielding a 80% bound) AND the generic
+    # "below" pattern (which, scanning past the range's own hyphen, fails to
+    # find a valid unit word and silently produces a second, bogus bare-
+    # number bound of "70 (no unit)"). That bare bound then wrongly gets
+    # compared against absolute (unit-less) values in the proposed fix,
+    # stripping the percentage semantics off a percentage-only constraint.
+    masked = clause
 
     m = _BETWEEN_RE.search(clause)
     if m:
         lo, hi, raw_unit = m.groups()
         unit = _normalize_unit(raw_unit)
-        bounds.append(("min", float(lo), unit))
-        bounds.append(("max", float(hi), unit))
+        subject = frozenset(_local_subject_tokens(clause, m.start()))
+        bounds.append(("min", float(lo), unit, subject))
+        bounds.append(("max", float(hi), unit, subject))
+        masked = masked[: m.start()] + " " * (m.end() - m.start()) + masked[m.end() :]
 
     m = _HYPHEN_PCT_RE.search(clause)
     if m:
         _, hi = m.groups()
-        bounds.append(("max", float(hi), "%"))
+        subject = frozenset(_local_subject_tokens(clause, m.start()))
+        bounds.append(("max", float(hi), "%", subject))
+        masked = masked[: m.start()] + " " * (m.end() - m.start()) + masked[m.end() :]
 
     for pat in _MAX_PHRASE_PATTERNS:
-        pm = re.search(pat, clause, re.IGNORECASE)
+        pm = re.search(pat, masked, re.IGNORECASE)
         if pm:
-            res = _first_number_and_unit(clause[pm.end():])
+            res = _first_number_and_unit(masked[pm.end():])
             if res:
-                bounds.append(("max", res[0], res[1]))
+                subject = frozenset(_local_subject_tokens(clause, pm.start()))
+                bounds.append(("max", res[0], res[1], subject))
 
     for pat in _MIN_PHRASE_PATTERNS:
-        pm = re.search(pat, clause, re.IGNORECASE)
+        pm = re.search(pat, masked, re.IGNORECASE)
         if pm:
-            res = _first_number_and_unit(clause[pm.end():])
+            res = _first_number_and_unit(masked[pm.end():])
             if res:
-                bounds.append(("min", res[0], res[1]))
+                subject = frozenset(_local_subject_tokens(clause, pm.start()))
+                bounds.append(("min", res[0], res[1], subject))
 
     # dedupe while preserving order
-    seen: set[tuple[str, float, str]] = set()
-    deduped: list[tuple[str, float, str]] = []
+    seen: set[tuple[str, float, str, frozenset]] = set()
+    deduped: list[tuple[str, float, str, frozenset]] = []
     for b in bounds:
         if b not in seen:
             seen.add(b)
@@ -275,11 +334,7 @@ def _extract_bounds_from_clause(clause: str) -> list[tuple[str, float, str]]:
 def _extract_bounds_from_bullet(bullet: str) -> list[_Bound]:
     bounds: list[_Bound] = []
     for clause in _clauses(bullet):
-        clause_bounds = _extract_bounds_from_clause(clause)
-        if not clause_bounds:
-            continue
-        subject = frozenset(_subject_tokens(clause))
-        for op, value, unit in clause_bounds:
+        for op, value, unit, subject in _extract_bounds_from_clause(clause):
             bounds.append((op, value, unit, subject, bullet))
     return bounds
 
@@ -291,6 +346,14 @@ def _extract_fix_numbers(text: str) -> list[tuple[float, str]]:
         unit = _trailing_unit(text, m.end())
         out.append((float(m.group(0)), unit))
     return out
+
+
+def _squash(s: str) -> str:
+    """Lowercase and strip everything but letters/digits, so parameter-name
+    matching tolerates backticks, underscores, camelCase, and spacing
+    differences (`initialDelaySeconds`, "initialDelaySeconds", and "initial
+    delay seconds" all squash to the same string)."""
+    return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
 def _fmt_num(v: float) -> str:
@@ -347,6 +410,7 @@ def verify_against_constraints(
         all_bounds = [bound for bounds in bullet_bounds for bound in bounds]
 
         fix_text_lower = proposed_fix.lower()
+        squashed_fix_text = _squash(proposed_fix)
         fix_numbers = _extract_fix_numbers(proposed_fix)
 
         if not all_bounds:
@@ -362,7 +426,7 @@ def verify_against_constraints(
 
         for bounds in bullet_bounds:
             for op, bound_value, unit, subject_tokens, bullet_text in bounds:
-                if subject_tokens and not any(tok in fix_text_lower for tok in subject_tokens):
+                if subject_tokens and not any(_squash(tok) in squashed_fix_text for tok in subject_tokens):
                     # No shared subject wording between this bound and the
                     # fix text -- the bound does not apply to this fix.
                     continue

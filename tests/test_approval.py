@@ -151,6 +151,97 @@ def test_deploy_bare_number_bound():
     assert result["passed"] is False
 
 
+# --- regression: parameter/unit-aware bound matching -----------------------
+
+
+def test_initial_delay_at_mandated_minimum_is_not_a_violation():
+    # RB-DEPLOY-001 REQUIRES initialDelaySeconds >= 15. Proposing exactly the
+    # mandated minimum must never be rejected -- this was the headline bug:
+    # the old code cross-matched it against timeoutSeconds' unrelated max of 5.
+    result = verify_against_constraints(
+        "Set initialDelaySeconds to 15 seconds", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is True
+
+
+def test_initial_delay_above_minimum_is_not_a_violation():
+    result = verify_against_constraints(
+        "Set initialDelaySeconds to 30 seconds", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is True
+
+
+def test_timeout_seconds_within_its_own_bound_passes():
+    result = verify_against_constraints(
+        "Set readiness timeoutSeconds to 3 seconds", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is True
+
+
+def test_timeout_seconds_exceeding_its_own_bound_fails():
+    result = verify_against_constraints(
+        "Set readiness timeoutSeconds to 9 seconds", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is False
+    assert "seconds" in result["reason"]
+
+
+def test_failure_threshold_exceeding_its_own_bound_fails():
+    result = verify_against_constraints(
+        "Set failureThreshold to 5", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is False
+
+
+def test_absolute_value_not_compared_against_percentage_bound():
+    # RB-NETWORK-001's "below 70-80%" bound is a percentage; an absolute
+    # max_connections value must never be cross-compared against it (unit
+    # mismatch means the comparison is skipped, not rejected).
+    result = verify_against_constraints(
+        "Raise max_connections to 500 and add a second replica", "RB-NETWORK-001"
+    )
+    assert result["passed"] is True
+
+
+def test_used_memory_rss_over_percentage_bound_still_rejected():
+    # Must-not-regress: a genuine same-parameter, same-unit percentage
+    # breach is still caught.
+    result = verify_against_constraints(
+        "Set used_memory_rss to 95%", "RB-MEMORY-001"
+    )
+    assert result["passed"] is False
+    assert "%" in result["reason"]
+
+
+def test_used_memory_rss_within_percentage_bound_passes():
+    result = verify_against_constraints(
+        "Set used_memory_rss to 60%", "RB-MEMORY-001"
+    )
+    assert result["passed"] is True
+
+
+def test_unassociated_number_is_not_rejected():
+    # A number that matches no bound's parameter at all must be treated as
+    # unverified (pass), never as a violation -- abstaining beats a false
+    # rejection of a fix the verifier can't confidently parse.
+    result = verify_against_constraints(
+        "Bump the widget frobnicator to 42", "RB-DEPLOY-001"
+    )
+    assert result["passed"] is True
+
+
+def test_parameter_matching_is_tolerant_of_spacing_and_case():
+    # `initialDelaySeconds`, "initialDelaySeconds", and "initial delay
+    # seconds" must all associate with the same bound.
+    for phrasing in (
+        "Set initialDelaySeconds to 15 seconds",
+        "Set initialdelayseconds to 15 seconds",
+        "Set initial delay seconds to 15 seconds",
+    ):
+        result = verify_against_constraints(phrasing, "RB-DEPLOY-001")
+        assert result["passed"] is True, phrasing
+
+
 # --- PendingAction ----------------------------------------------------------
 
 

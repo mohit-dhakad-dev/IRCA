@@ -201,56 +201,34 @@ SEARCH_PAST_INCIDENTS_SCHEMA = {
     },
 }
 
-UPDATE_TICKET_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "update_ticket",
-        "description": (
-            "Queue a proposed resolution for a ticket for HUMAN APPROVAL. This "
-            "never changes a ticket by itself -- it only creates a pending "
-            "action that a human must separately approve. `citation_doc_id` "
-            "must be a runbook doc_id actually returned by a successful "
-            "search_runbooks call earlier this run -- never invent one. The "
-            "proposed_fix is checked against that runbook's Constraints "
-            "section before queueing; a returned status of "
-            "'verification_failed' means the fix was rejected and must be "
-            "revised (or a different citation chosen) before trying again."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "proposed_root_cause": {
-                    "type": "string",
-                    "description": "The root cause you have diagnosed for this ticket, in plain language.",
-                },
-                "proposed_fix": {
-                    "type": "string",
-                    "description": (
-                        "The fix you propose applying, in plain language. Checked "
-                        "against the cited runbook's Constraints before queueing."
-                    ),
-                },
-                "citation_doc_id": {
-                    "type": "string",
-                    "description": (
-                        "The doc_id of the runbook this fix is drawn from -- must "
-                        "be one actually returned by a search_runbooks call this "
-                        "run, not invented."
-                    ),
-                },
-            },
-            "required": ["proposed_root_cause", "proposed_fix", "citation_doc_id"],
-            "additionalProperties": False,
-        },
-    },
-}
+# update_ticket is deliberately NOT model-callable, and therefore has no
+# schema in TOOL_SCHEMAS below. The write gate (agent/orchestrator.py,
+# _queue_write_action) invokes tools.ticket_tools.update_ticket DIRECTLY,
+# bypassing execute_tool_call, once its own _can_resolve check passes -- it
+# was never meant to be something the model chooses mid-loop. Exposing it as
+# an in-loop tool caused four independent problems, all observed in sweeps:
+#   1. Duplicate approval actions: a run could queue two pending actions in
+#      one loop (e.g. T049, T055), and TaskState.pending_action_id only keeps
+#      the last, orphaning the earlier one in the approval queue.
+#   2. Citation loss: the round that wiped accumulated citations was
+#      frequently an in-loop update_ticket round (T009/T019/T021/T024/T048)
+#      -- a round that adds no diagnostic evidence but still triggers a
+#      critic pass.
+#   3. The state_consistency eval metric had to identify the terminal
+#      write-gate entry by ITERATION INDEX rather than tool name, precisely
+#      because update_ticket could also appear as an ordinary in-loop call.
+#   4. An in-loop update_ticket round consumes a loop iteration against
+#      max_iterations without gathering any evidence.
+# Do not re-add an UPDATE_TICKET_SCHEMA entry here. tools.ticket_tools.
+# update_ticket remains registered in agent/tool_executor.py's TOOLS dict
+# and TICKET_SCOPED_TOOLS for defense-in-depth (see that module) in case it
+# is ever reached directly, but the model itself must never be offered it.
 
 TOOL_SCHEMAS = [
     QUERY_LOGS_SCHEMA,
     QUERY_METRICS_SCHEMA,
     SEARCH_RUNBOOKS_SCHEMA,
     SEARCH_PAST_INCIDENTS_SCHEMA,
-    UPDATE_TICKET_SCHEMA,
 ]
 
 # Args every tool function in tools/log_tools.py requires but which are

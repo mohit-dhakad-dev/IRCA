@@ -68,7 +68,19 @@ def test_tool_schemas_list_names_and_type():
         "query_metrics",
         "search_runbooks",
         "search_past_incidents",
-        "update_ticket",
     ]
     for schema in TOOL_SCHEMAS:
         assert schema["type"] == "function"
+
+
+def test_update_ticket_not_in_tool_schemas():
+    # update_ticket must never be offered to the model as an in-loop tool --
+    # the write gate (agent/orchestrator.py, _queue_write_action) calls
+    # tools.ticket_tools.update_ticket directly instead. Exposing it here
+    # caused duplicate pending approvals, citation loss on write rounds, and
+    # wasted loop iterations (see agent/tool_schemas.py for the full list).
+    # If this test starts failing because someone re-added an
+    # UPDATE_TICKET_SCHEMA entry, that regression must be reverted, not this
+    # test relaxed.
+    names = [schema["function"]["name"] for schema in TOOL_SCHEMAS]
+    assert "update_ticket" not in names

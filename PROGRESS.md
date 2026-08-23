@@ -692,3 +692,30 @@ what this parser then falsely rejects. The compose fix did not cause these; it s
 - [ ] FOLLOW-UP: constraint parser must associate each bound with the parameter it constrains,
       not just scan for numbers. Covers T003/T013/T029/T050/T011. Highest-value remaining fix —
       it is the dominant cause of the surviving false escalations
+
+### Constraint parser + write-path structural fix (2026-08-23)
+- [x] agent/approval.py: bounds are now bound to the PARAMETER they constrain and compared only
+      when parameter AND unit both match. Two defects fixed: (a) unit stripping — spans consumed
+      by the percentage-range pattern are masked before the generic max/min patterns run, so
+      "below 70-80%" no longer also yields a bogus "70 (no unit)"; (b) parameter misassociation —
+      subject tokens are derived per bound match rather than per clause, so a neighbouring
+      comma-segment naming a different backticked parameter no longer leaks its subject.
+      Parameter matching is case/punctuation/space-insensitive (initialDelaySeconds ==
+      "initial delay seconds"). A value that cannot be confidently associated with a bound is
+      reported UNVERIFIED, not violating: this is a safety gate, but a parser that rejects the
+      runbook's OWN mandated value is worse than one that abstains — it blocks correct fixes and
+      trains the loop to escalate. Genuine same-parameter same-unit breaches still reject
+      (used_memory_rss at 95% vs the 75% bound still fails, verified)
+- [x] Corrects the false rejections behind T003, T004, T011, T013, T029, T050. NOTE: T004 was
+      previously recorded here as a GENUINE constraint violation — that was wrong, it is the same
+      parameter-association bug (initialDelaySeconds=15 rejected against timeoutSeconds' max of 5)
+- [x] agent/tool_schemas.py: update_ticket REMOVED from the model-callable schema. The write gate
+      is unaffected — _queue_write_action calls tools.ticket_tools.update_ticket directly, by
+      design, to avoid the ticket_id-injection hole. Four independent symptoms drove this:
+      duplicate queued approvals (T049, T055) that orphan all but the last action_id; in-loop
+      update_ticket rounds triggering the critic pass that wiped citations (T009/T019/T021/T024/
+      T048); the state_consistency metric needing iteration-index rather than tool-name
+      disambiguation; and such rounds burning a loop iteration without gathering evidence
+- [x] update_ticket stays in the executor registry and TICKET_SCOPED_TOOLS deliberately, so the
+      direct-call/injection defences still apply. A test now asserts its ABSENCE from TOOL_SCHEMAS
+      so a future re-add fails loudly
