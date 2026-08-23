@@ -1,5 +1,15 @@
 # Progress Log
 
+### CORRECTION (2026-08-23) — dollar figures throughout this log used the wrong rate card
+Every dollar figure recorded in this log to date was computed with GROQ's pricing
+($0.15/$0.60 per million input/output tokens), but all sweeps since the data expansion
+actually ran against BASETEN serving the same pinned model (openai/gpt-oss-120b). Token
+counts, call counts, and wall-clock times are correct and unaffected — only the currency
+conversion is wrong. Affected figures are marked inline below as
+"[Groq rate card — INVALID, these sweeps ran on Baseten]" rather than silently changed or
+deleted. No Baseten rate card is currently on file, so cost for those sweeps is UNCOMPUTED,
+not merely mis-estimated — do not treat the struck figures as a usable approximation.
+
 ## Phase 0 — Setup
 - [x] Folder structure, venv, git init
 - [x] CLAUDE.md, design.md in place
@@ -272,16 +282,19 @@
 - [x] Latency worry was unfounded: new host ran the same tickets 3-5x faster end-to-end
       despite a worse TTFT benchmark. TTFT is noise for a batch eval (G4)
 - [ ] ROTATE the current API key — it was pasted into a chat transcript (G5)
-- [x] Cost measured, not estimated: resolving ticket $0.0017 (10.1k in / 1.3k out, 6 calls),
-      escalating ticket $0.0060 (40k in / 4k out, 16 calls). A 15-ticket sweep is ~$0.06,
-      so a $2 budget is ~35 sweeps. Escalating tickets cost 3.6x resolving ones because
-      they burn the iteration cap on a growing transcript, so eval cost scales with the
-      FAILURE rate rather than ticket count. Cached pricing equals input pricing, so prompt
-      caching buys nothing here (G5)
+- [x] Cost measured, not estimated: resolving ticket $0.0017 [Groq rate card — INVALID, these
+      sweeps ran on Baseten] (10.1k in / 1.3k out, 6 calls), escalating ticket $0.0060 [Groq
+      rate card — INVALID, these sweeps ran on Baseten] (40k in / 4k out, 16 calls). A
+      15-ticket sweep is ~$0.06 [Groq rate card — INVALID, these sweeps ran on Baseten], so a
+      $2 budget is ~35 sweeps [Groq rate card — INVALID, these sweeps ran on Baseten].
+      Escalating tickets cost 3.6x resolving ones because they burn the iteration cap on a
+      growing transcript, so eval cost scales with the FAILURE rate rather than ticket count
+      (this ratio claim is rate-card-independent). Cached pricing equals input pricing, so
+      prompt caching buys nothing here (G5)
 - [ ] Budget is no longer the constraint — n=1 is. Spend it on REPEATED sweeps (5 runs
-      = ~$0.30) to get variance on resolve/escalate rates, RAG-skip frequency, and
-      false-resolve rate, rather than one careful run that still cannot distinguish a real
-      behavioral change from model variance
+      = ~$0.30 [Groq rate card — INVALID, these sweeps ran on Baseten]) to get variance on
+      resolve/escalate rates, RAG-skip frequency, and false-resolve rate, rather than one
+      careful run that still cannot distinguish a real behavioral change from model variance
 - [ ] Eval harness should fan out over the 15 independent tickets concurrently — that beats
       any per-call latency tuning for wall-clock (G4)
 
@@ -496,11 +509,17 @@ above under the RAG/memory phase. The diagnostic must check all six conditions i
 - Outcome: 20 resolved / 43 escalated
 - Against expected_behavior: escalate 12/13 correct (1 wrongly resolved);
   resolve_with_approval 19/50 correct (31 wrongly escalated)
-- Cost/efficiency: 1,243 LLM calls, 1.82M tokens in, 191k out (2.01M total), ~$0.39,
+- Cost/efficiency: 1,243 LLM calls, 1.82M tokens in, 191k out (2.01M total),
+  ~$0.39 [Groq rate card — INVALID, these sweeps ran on Baseten],
   50.4 min wall clock (mean 48.0s, p50 47.1s, p95 69.2s, max 94.6s per ticket)
-- Estimate calibration: the projection from a single T001 run (~$0.25, ~20 min) was low by
-  ~1.5x on cost and ~2.5x on time. T001 is a fast ticket, not a representative one — project
-  future sweep cost from the mean, not from a sample of one
+- Estimate calibration: the projection from a single T001 run
+  (~$0.25 [Groq rate card — INVALID, these sweeps ran on Baseten], ~20 min) was low by
+  ~1.5x on cost [Groq rate card — INVALID, these sweeps ran on Baseten; the COST half of
+  this calibration claim is VOID] and ~2.5x on time (the TIME half still stands — wall
+  clock was measured, not derived, and is unaffected by the rate-card error). T001 is a
+  fast ticket, not a representative one — project future sweep TIME from the mean, not
+  from a sample of one; cost cannot currently be projected at all (see correction note
+  near the top of this log)
 - The sweep was killed at T029 by a session teardown and resumed with
   --live --no-archive --tickets T030..T063. All 29 pre-kill files were valid and parseable,
   which is the atomic-write guarantee doing its job
@@ -724,7 +743,8 @@ what this parser then falsely rejects. The compose fix did not cause these; it s
 Like-for-like against the pre-fix sweep using the CORRECTED labels:
 - task success 30/63 (48%) -> 50/63 (79%)
 - resolve-expected 20/53 -> 40/53; escalate-expected 10/10 -> 10/10 (unchanged, no safety cost)
-- 600 LLM calls vs 1243; 1.47M tokens vs 2.01M; ~$0.30 vs $0.39; 40.3min vs 50.4min
+- 600 LLM calls vs 1243; 1.47M tokens vs 2.01M;
+  ~$0.30 vs $0.39 [Groq rate card — INVALID, these sweeps ran on Baseten]; 40.3min vs 50.4min
 
 13 failures remain, and they are NOT one cause:
 - 8 are still the constraint parser, in two shapes the fix did not cover:
@@ -805,3 +825,33 @@ unit both match. Defect 3 dissolves once association is correct — 80 binds to 
       "Keep each production filesystem below 80% utilization"). Genuine violations on those are still
       caught via the descriptive-subject fallback — verified for filesystem %, log file MB, network %,
       key-overlap hours and headroom % — with the single documented exception above
+
+### Post-parser-round-2 sweep (2026-08-23, sweep 5, Baseten) — 63/63, 0 crashed, 0 errors
+- task success 50/63 (79%) -> 59/63 (94%)
+- resolve-expected 40/53 -> 49/53; escalate-expected 10/10 -> 10/10 (unchanged across every
+  round of these fixes — the safety side of the ledger has not moved once)
+- 558 LLM calls (vs 600), 1.34M tokens (vs 1.47M), 36.8min (vs 40.3min). NO dollar figure is
+  given for this sweep — see the correction note at the top of this log; Baseten cost is
+  currently UNCOMPUTED
+- Parser targets: T004, T023, T027, T033 all CLEARED (escalated -> resolved) by constraint
+  parser round 2. T029 still escalates but is NO LONGER on constraints — it now hits the loop
+  guard instead, i.e. its parser defect is fixed and it fell through to the other known
+  (already-logged) bug
+- ZERO tickets now fail on constraint verification anywhere in the corpus
+
+The only 4 remaining failures, each mapping to an already-logged follow-up, and there are now
+ZERO unexplained failures:
+- T025, T029: loop-guard recovery — the model reissues the identical blocked call instead of
+  trying something different (see "the real defect is RECOVERY, not detection" above)
+- T019: the agent asks the user for information instead of investigating with the tools it
+  already has — same class as T044
+- T039: retrieval-score variance ("best score 0.37 < 0.50 threshold"), the same class of
+  variance already recorded for T001/T017/T040/T049
+
+### Methodological correction (2026-08-23)
+An earlier note in this log treated the Groq -> Baseten endpoint switch as a possible
+confounder for the sweep-4-to-sweep-5 comparison. That was wrong: Baseten has served every
+sweep since the data expansion (sweep 4 included), so the serving provider was constant
+across both sweeps compared here, and the 79% -> 94% improvement is attributable to the
+parser fix rather than to an endpoint change. Only the API key changed between the two
+sweeps, within the same provider.

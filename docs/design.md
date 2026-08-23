@@ -335,7 +335,10 @@ written by eval/run_benchmark.py (Part A).
 
 **Efficiency**
 - per ticket: llm_call_count, tool_call_count, total_tokens_in/out, wall_clock_seconds, 
-  estimated_cost_usd (Groq pricing)
+  estimated_cost_usd (the serving provider is configurable via LLM_BASE_URL, so this must use
+  the rate card of whichever provider actually served the run, not a fixed Groq rate card.
+  Baseten has served every sweep since the data expansion, and no Baseten rate card is on
+  file, so cost is currently UNCOMPUTED for those sweeps rather than estimated)
 - aggregate: mean/p50/p95 across all 63
 
 Memory & State
