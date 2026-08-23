@@ -341,6 +341,34 @@ written by eval/run_benchmark.py (Part A).
   file, so cost is currently UNCOMPUTED for those sweeps rather than estimated)
 - aggregate: mean/p50/p95 across all 63
 
+
+## LLM-Judge Metrics — RAGAS (Session 9b spec)
+
+Scope: resolved tickets only (escalated tickets have no "answer" to judge for faithfulness).
+
+RAGAS inputs, reconstructed from eval/results/raw/{ticket_id}.json — no re-run of the agent:
+- question: ticket.ticket_text
+- answer: state.trajectory's final proposed_fix (from the update_ticket call args)
+- contexts: actual chunk TEXT (not just doc_id) for every doc_id in state.citations — 
+  reload from rag/ingest.py's chunk store, keyed by doc_id
+- ground_truth: the cited runbook's Fix section, loaded the same way
+
+Metrics: faithfulness, answer_relevancy, context_precision, context_recall (ground_truth-based, 
+available since we have gold_runbook_id per ticket).
+
+Custom (non-RAGAS) LLM-judge metrics, separate module:
+- plan_quality: 1-5 scale, critic-of-the-planner comparing executed plan vs a reference plan 
+  I write for a stratified sample (not all 63 — too expensive/slow to reference-write for all)
+- final_answer_correctness: semantic match of proposed_fix vs gold_root_cause's known-good fix
+
+Human-agreement check: I hand-label faithfulness + plan_quality on 15-20 tickets myself 
+(stratified across categories, including the traced ones: T009, T024, T038, T055), compare 
+to judge scores, report simple % agreement (and Cohen's kappa if labels are categorical 
+enough to support it).
+
+Cost control: mark all RAGAS/judge calls @pytest.mark.live equivalent — a standalone script, 
+not part of default pytest. Report per-metric LLM call count and cost before running on all 63.
+
 Memory & State
 Type
 What's stored
