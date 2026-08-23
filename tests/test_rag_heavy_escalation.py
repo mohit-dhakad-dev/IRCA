@@ -1,16 +1,36 @@
-"""Regression tests for the three rag_heavy escalate cases (T049, T050, T055).
+"""Regression tests for the rag_heavy escalate cases (T049, T050).
 
-Measured fact (do not re-derive here): T049, T050, T055 escalate ONLY because
+Measured fact (do not re-derive here): T049 and T050 escalate ONLY because
 agent.orchestrator._can_resolve requires a CREDITED "search_runbooks" source
-specifically, and search_runbooks returns status="no_confident_match" for all
-three (scores 0.3734 / 0.3385 / 0.2048, below the 0.5 gate in
-rag/retrieve.py), so it is never credited by _credit_evidence. The memory
-layer would happily credit T050 -- its search_past_incidents score is 0.4505,
-above the 0.40 gate in memory/store.py, status "ok". If the runbook-credit
-requirement in _can_resolve is ever weakened (e.g. replaced with "any
-retrieval source" or dropped entirely), these three tickets would silently
-start resolving instead of escalating. These tests are designed to fail
-loudly the moment that happens.
+specifically, and search_runbooks returns status="no_confident_match" for
+both (scores 0.3734 / 0.3385, below the 0.5 gate in rag/retrieve.py), so it
+is never credited by _credit_evidence. The memory layer would happily credit
+T050 -- its search_past_incidents score is 0.4505, above the 0.40 gate in
+memory/store.py, status "ok". If the runbook-credit requirement in
+_can_resolve is ever weakened (e.g. replaced with "any retrieval source" or
+dropped entirely), these two tickets would silently start resolving instead
+of escalating. These tests are designed to fail loudly the moment that
+happens.
+
+T055 was REMOVED from this set on 2026-08-23 because its gold label was
+corrected (see data/tickets.json notes on T055): its expected_behavior is
+now "resolve_with_approval", not "escalate". The scores above (0.3734 /
+0.3385 / 0.2048, the third being T055's) measure search_runbooks retrieval
+on TICKET TEXT -- but the agent never queries search_runbooks with ticket
+text. It queries with vocabulary read from tool observations, and T055's
+log fixture leaks the exact runbook wording ("OOM command not allowed when
+used memory > 'maxmemory'"), so the query the agent actually issues
+retrieves T055's own gold runbook (RB-MEMORY-001) at 0.58 -- well above the
+gate. This guard's ticket-text-only measurement never exercised that path,
+which is why it did not catch the stale label.
+
+Note (open question, not yet acted on): T049 and T050 ALSO retrieved their
+gold runbooks confidently in the 2026-08-23 sweep when queried with observed
+vocabulary rather than ticket text -- T049 matched RB-MEMORY-001 at 0.75 and
+T050 matched RB-NETWORK-001 at 0.73. The same staleness question that applied
+to T055 is therefore open for T049/T050 too, and is awaiting a decision. Their
+labels and membership in RAG_HEAVY_ESCALATE_IDS are UNCHANGED here pending
+that decision; do not relabel them based on this note alone.
 
 Follows the conventions of tests/test_orchestrator.py (unit tests on
 _can_resolve / _credit_evidence, no network, TaskState built by hand) and
@@ -37,7 +57,7 @@ from rag.retrieve import search_runbooks
 from rag import retrieve
 
 TICKETS_PATH = Path(__file__).resolve().parent.parent / "data" / "tickets.json"
-RAG_HEAVY_ESCALATE_IDS = ["T049", "T050", "T055"]
+RAG_HEAVY_ESCALATE_IDS = ["T049", "T050"]
 
 
 def _tickets_by_id() -> dict[str, dict]:
@@ -48,13 +68,13 @@ def _tickets_by_id() -> dict[str, dict]:
 # ---------------------------------------------------------------------------
 # (a) Pure unit test on _can_resolve: proves the search_runbooks-credit
 # requirement is load-bearing, not accidentally satisfied by something else.
-# Protects T049/T050/T055 -- if this requirement is ever weakened, those
-# three tickets would silently start resolving instead of escalating.
+# Protects T049/T050 -- if this requirement is ever weakened, those
+# two tickets would silently start resolving instead of escalating.
 # ---------------------------------------------------------------------------
 def test_can_resolve_requires_credited_search_runbooks():
     """Drift this catches: _can_resolve silently dropping (or weakening) its
     "search_runbooks" in state.evidence_sources requirement -- the exact
-    mechanism that keeps T049/T050/T055 escalating instead of resolving."""
+    mechanism that keeps T049/T050 escalating instead of resolving."""
     doc_id = "RB-DB-001"
     trajectory_entry = {
         "iteration": 0,
@@ -86,7 +106,7 @@ def test_can_resolve_requires_credited_search_runbooks():
 # ---------------------------------------------------------------------------
 # (b) Unit test on the crediting path: proves "no_confident_match" is never
 # credited, which is the link between "retrieval was weak" and "resolve is
-# blocked" for T049/T050/T055.
+# blocked" for T049/T050.
 # ---------------------------------------------------------------------------
 def test_no_confident_match_is_not_credited():
     """Drift this catches: _credit_evidence (or a future replacement) ever
@@ -112,7 +132,7 @@ def test_no_confident_match_is_not_credited():
 
 # ---------------------------------------------------------------------------
 # (c) Data/retrieval test: confirms the live data actually produces the
-# no_confident_match status for search_runbooks on T049/T050/T055, and that
+# no_confident_match status for search_runbooks on T049/T050, and that
 # memory alone WOULD have credited T050 -- which is precisely why the
 # runbooks-specific requirement in _can_resolve matters.
 # ---------------------------------------------------------------------------
@@ -142,7 +162,7 @@ def _clear_retrieve_cache_between_tests():
 def test_rag_heavy_escalate_cases_fail_runbooks_but_pass_memory(
     ticket_id, runbook_index_path, memory_index_path
 ):
-    """Drift this catches: T049/T050/T055's expected_behavior changing away
+    """Drift this catches: T049/T050's expected_behavior changing away
     from "escalate", or search_runbooks starting to confidently match one of
     them (which would remove the reason they escalate today), or -- for
     T050 specifically -- memory's independent "ok" status disappearing,

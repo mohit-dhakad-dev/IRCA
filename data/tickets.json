@@ -601,8 +601,8 @@
     "gold_runbook_id": "RB-MEMORY-001.md",
     "required_tools": ["query_logs", "query_metrics", "search_runbooks"],
     "min_confidence_evidence_sources": 2,
-    "expected_behavior": "escalate",
-    "notes": "Intentional retrieval-failure case: scores ~0.20-0.37, below the 0.5 gate, so search_runbooks returns no_confident_match and the run is expected to escalate. Avoided 'maxmemory' and 'evicted_keys' from RB-MEMORY-001; described the mechanism as the fast layer shedding older entries to make room."
+    "expected_behavior": "resolve_with_approval",
+    "notes": "Corrected 2026-08-23: originally labeled as an intentional retrieval-failure case on the premise that ticket text (scrubbed of 'maxmemory' and 'evicted_keys') scores ~0.20-0.37 against RB-MEMORY-001, below the 0.5 gate, forcing an escalation. That premise holds only for the ticket text in isolation. The agent does not query search_runbooks with the ticket text; it queries with vocabulary read from tool observations, and T055's log fixture still emits the exact runbook string \"OOM command not allowed when used memory > 'maxmemory'\" (168 ERROR lines, 70% matching). search_runbooks on that observed vocabulary retrieves RB-MEMORY-001 at 0.58, which is T055's own gold_runbook_id, and its Root Cause section is memory_cache_overgrowth, T055's exact gold_root_cause. This retrieval is correct, not a confident-wrong-retrieval failure like the T015/T018 pattern where the agent retrieves a runbook that is not the gold one; it is the observe-then-retrieve loop working as designed. The expected behavior is therefore resolve_with_approval, not escalate."
   },
   {
     "id": "T056",
