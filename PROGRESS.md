@@ -855,3 +855,41 @@ sweep since the data expansion (sweep 4 included), so the serving provider was c
 across both sweeps compared here, and the 79% -> 94% improvement is attributable to the
 parser fix rather than to an endpoint change. Only the API key changed between the two
 sweeps, within the same provider.
+
+### Narrative write-up
+- [x] docs/diagnostic_arc_summary.md — standalone account of the whole 49% -> 94% arc, written
+      the same day against live trace data rather than reconstructed later: the wrong root-cause
+      hypothesis and the diagnostic that falsified it, the compose bug, the citation bug, the
+      rag_heavy leakage finding, and the two rounds of constraint-parser work. Includes an honest
+      scorecard of the errors made along the way — the flattening fix that scored 0/8 "empty"
+      while being actively harmful, two tickets reported fixed from a running log without checking
+      the result files, T004 characterised three different ways, a parser fix that caused three
+      regressions through hand-picked verification, dollar figures on the wrong rate card, and a
+      confounder flagged that did not exist
+
+## Current state (end of 2026-08-23)
+
+Benchmark: 59/63 (94%) task success, 0 crashes, 0 errors, 0 unexplained failures.
+Escalate-expected accuracy 10/10 and has never regressed through any fix in this arc.
+Suite: 317 passed, 6 deselected. Branch rag-and-memory-layers, pushed.
+
+Four known failures remain, all with logged causes and none in the constraint parser:
+- T025, T029 — loop-guard recovery
+- T019 — agent asks the user instead of investigating (class established by T044)
+- T039 — retrieval-score variance below the 0.50 gate
+
+### Next
+- [ ] PHASE 9a PART B is still NOT built: eval/report.py, the actual scorer. Every number quoted
+      in this log from sweeps 3-5 was computed by ad-hoc analysis scripts, not by a committed
+      scorer, and eval/results/report.md + report.json (the tracked eval history, already
+      un-ignored in .gitignore) do not exist yet. Part B must implement the Session 9a metric
+      spec in docs/design.md, including the restated state_consistency /
+      write_gate_appended_correctly pair and the explicit crashed-ticket count that must never be
+      averaged away. Until it exists there is no committed eval history, only prose in this file
+- [ ] Highest-value remaining agent fix: loop-guard recovery. It is the single largest remaining
+      failure class (2 of 4) and the guard itself is confirmed correct — only the model's response
+      to being blocked is wrong
+- [ ] Decide on the retrieval gate. docs/design.md now documents that the same ticket's
+      search_runbooks score swings roughly 0.37-0.75 on query phrasing alone, with SCORE_THRESHOLD
+      sitting at 0.50 in the middle of that band. T039 and T049 are both decided by that coin flip
+- [ ] Baseten rate card, so estimated_cost_usd can be computed at all
