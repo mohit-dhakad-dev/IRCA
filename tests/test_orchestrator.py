@@ -9,6 +9,7 @@ agent.orchestrator.call_llm_with_tools, so no network call is ever made. No
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -1489,3 +1490,415 @@ def test_loop_escalates_when_citation_is_fabricated(monkeypatch):
 
     assert state.status == "escalated"
     assert state.citations == ["RB-FAKE-999"]
+
+
+# ---------------------------------------------------------------------------
+# 36. F7 citation-accumulation fix: `state.citations = assessment.citations`
+# used to be an unconditional overwrite, so a critic reply that simply
+# omitted "citations" (Assessment.citations defaults to []) silently wiped
+# out a citation a previous round had correctly established. These tests pin
+# the accumulate-then-retract replacement (_merge_citations). See
+# tests/fixtures/citation_regression/README.md for the live replay evidence.
+# ---------------------------------------------------------------------------
+def _raw_json_response(payload):
+    return _make_text_response(json.dumps(payload))
+
+
+def test_loop_omitted_citations_key_does_not_wipe_prior_citation(monkeypatch):
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "query_logs", _stub_tool(status="empty")
+    )
+
+    round1_payload = {
+        "hypothesis": "disk full",
+        "confidence": 0.6,
+        "supports": True,
+        "reasoning": "because",
+        "citations": ["RB-DISK-001"],
+    }
+    round2_payload = {
+        # "citations" key entirely absent -- exercises the Pydantic default
+        # path, not an explicit empty list.
+        "hypothesis": "disk full",
+        "confidence": 0.6,
+        "supports": True,
+        "reasoning": "still because",
+    }
+    assert "citations" not in round2_payload
+
+    responses = [
+        _make_tool_call_response(
+            [_tool_call("c1", "query_logs", {"service": "checkout", "window": "1h", "level": "ERROR"})]
+        ),
+        _raw_json_response(round1_payload),
+        _make_tool_call_response(
+            [_tool_call("c2", "query_logs", {"service": "checkout", "window": "2h", "level": "ERROR"})]
+        ),
+        _raw_json_response(round2_payload),
+    ]
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "escalated"
+    assert state.citations == ["RB-DISK-001"]
+
+
+def test_loop_explicit_empty_citations_does_not_wipe_prior_citation(monkeypatch):
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "query_logs", _stub_tool(status="empty")
+    )
+
+    responses = [
+        _make_tool_call_response(
+            [_tool_call("c1", "query_logs", {"service": "checkout", "window": "1h", "level": "ERROR"})]
+        ),
+        _assessment_response("disk full", 0.6, True, citations=["RB-DISK-001"]),
+        _make_tool_call_response(
+            [_tool_call("c2", "query_logs", {"service": "checkout", "window": "2h", "level": "ERROR"})]
+        ),
+        _assessment_response("disk full", 0.6, True, citations=[]),
+    ]
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "escalated"
+    assert state.citations == ["RB-DISK-001"]
+
+
+def test_loop_retracted_citation_is_removed(monkeypatch):
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "query_logs", _stub_tool(status="empty")
+    )
+
+    round2_payload = {
+        "hypothesis": "actually something else",
+        "confidence": 0.4,
+        "supports": False,
+        "reasoning": "the db runbook no longer fits",
+        "citations": [],
+        "retracted_citations": ["RB-DB-001"],
+    }
+
+    responses = [
+        _make_tool_call_response(
+            [_tool_call("c1", "query_logs", {"service": "checkout", "window": "1h", "level": "ERROR"})]
+        ),
+        _assessment_response("db issue", 0.6, True, citations=["RB-DB-001"]),
+        _make_tool_call_response(
+            [_tool_call("c2", "query_logs", {"service": "checkout", "window": "2h", "level": "ERROR"})]
+        ),
+        _raw_json_response(round2_payload),
+    ]
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "escalated"
+    assert state.citations == []
+
+
+def test_loop_retraction_wins_over_citation_in_same_round(monkeypatch):
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "query_logs", _stub_tool(status="empty")
+    )
+
+    round1_payload = {
+        "hypothesis": "db issue",
+        "confidence": 0.6,
+        "supports": True,
+        "reasoning": "because",
+        "citations": ["RB-DB-001"],
+        "retracted_citations": ["RB-DB-001"],
+    }
+
+    responses = [
+        _make_tool_call_response(
+            [_tool_call("c1", "query_logs", {"service": "checkout", "window": "1h", "level": "ERROR"})]
+        ),
+        _raw_json_response(round1_payload),
+        _make_tool_call_response(
+            [_tool_call("c2", "query_logs", {"service": "checkout", "window": "2h", "level": "ERROR"})]
+        ),
+        _assessment_response("db issue", 0.6, True),
+    ]
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "escalated"
+    assert state.citations == []
+
+
+# ---------------------------------------------------------------------------
+# 37. _merge_citations unit tests -- the helper both call sites share.
+# ---------------------------------------------------------------------------
+def test_merge_citations_omitted_new_citations_keeps_existing():
+    merged = orchestrator_module._merge_citations(["RB-DISK-001"], [], [])
+    assert merged == ["RB-DISK-001"]
+
+
+def test_merge_citations_adds_new_without_dropping_existing():
+    merged = orchestrator_module._merge_citations(["RB-A"], ["RB-B"], [])
+    assert merged == ["RB-A", "RB-B"]
+
+
+def test_merge_citations_reaffirmed_doc_id_moves_to_end_without_duplicating():
+    # Reaffirming RB-A must not create a second copy, AND must move it to
+    # the end -- the last element is what the critic most recently stood
+    # behind.
+    merged = orchestrator_module._merge_citations(["RB-A", "RB-B"], ["RB-A"], [])
+    assert merged == ["RB-B", "RB-A"]
+
+
+def test_merge_citations_retracts_existing():
+    merged = orchestrator_module._merge_citations(["RB-A", "RB-B"], [], ["RB-A"])
+    assert merged == ["RB-B"]
+
+
+def test_merge_citations_retraction_wins_over_citation_same_round():
+    merged = orchestrator_module._merge_citations([], ["RB-A"], ["RB-A"])
+    assert merged == []
+
+
+def test_merge_citations_orders_by_most_recent_affirmation():
+    # Round 1 cites RB-A, round 2 cites RB-B, round 3 reaffirms RB-A -- the
+    # LAST element must always be whatever was most recently affirmed,
+    # since _queue_write_action grounds the write in citations[-1]: the
+    # write must be tied to the critic's latest judgement about what
+    # supports the CURRENT hypothesis, not to whichever doc_id happened to
+    # be cited first (which may belong to an abandoned hypothesis).
+    state_citations = []
+    state_citations = orchestrator_module._merge_citations(state_citations, ["RB-A"], [])
+    assert state_citations == ["RB-A"]
+    assert state_citations[-1] == "RB-A"
+
+    state_citations = orchestrator_module._merge_citations(state_citations, ["RB-B"], [])
+    assert state_citations == ["RB-A", "RB-B"]
+    assert state_citations[-1] == "RB-B"
+
+    state_citations = orchestrator_module._merge_citations(state_citations, ["RB-A"], [])
+    assert state_citations == ["RB-B", "RB-A"]
+    assert state_citations[-1] == "RB-A"
+
+
+# ---------------------------------------------------------------------------
+# 38. Assessment schema (F7): retracted_citations defaults to [] and is
+# carried through when present.
+# ---------------------------------------------------------------------------
+def test_assessment_parses_with_retracted_citations_absent():
+    assessment = orchestrator_module.Assessment.model_validate(
+        {"hypothesis": "h", "confidence": 0.5, "supports": True, "reasoning": "r"}
+    )
+    assert assessment.retracted_citations == []
+
+
+def test_assessment_parses_with_retracted_citations_present():
+    assessment = orchestrator_module.Assessment.model_validate(
+        {
+            "hypothesis": "h",
+            "confidence": 0.5,
+            "supports": True,
+            "reasoning": "r",
+            "retracted_citations": ["RB-DB-001"],
+        }
+    )
+    assert assessment.retracted_citations == ["RB-DB-001"]
+
+
+def test_critic_instruction_documents_retracted_citations():
+    instruction = orchestrator_module.CRITIC_INSTRUCTION
+    assert "retracted_citations" in instruction
+    assert "does NOT retract" in instruction
+
+
+# ---------------------------------------------------------------------------
+# 39. Superseded-hypothesis citation fix: _queue_write_action must ground the
+# write in the MOST RECENTLY AFFIRMED citation (citations[-1]), not
+# citations[0] -- an older citation left over from an abandoned hypothesis
+# must never end up backing the write.
+# ---------------------------------------------------------------------------
+def test_queue_write_action_uses_most_recently_affirmed_citation(monkeypatch):
+    # RB-DISK-001 was cited first (and would belong to an earlier, now
+    # abandoned hypothesis); RB-DB-001 (RUNBOOK_DOC_ID) was affirmed most
+    # recently and is last in state.citations. The write must be grounded in
+    # RB-DB-001, not RB-DISK-001.
+    state = TaskState(ticket_id=TICKET_ID, description="x")
+    state.hypothesis = "db_connection_pool_exhaustion"
+    state.citations = ["RB-DISK-001", RUNBOOK_DOC_ID]
+
+    captured_update_ticket_kwargs = {}
+
+    def _fake_update_ticket(**kwargs):
+        captured_update_ticket_kwargs.update(kwargs)
+        return {
+            "status": "awaiting_approval",
+            "data": {"action_id": "a1"},
+            "summary": "queued",
+        }
+
+    monkeypatch.setattr(orchestrator_module, "update_ticket", _fake_update_ticket)
+
+    captured_compose_messages = []
+
+    def _fake_call_llm_with_tools(messages, tools):
+        captured_compose_messages.append(messages)
+        return _make_text_response(WRITE_GATE_FIX_TEXT)
+
+    monkeypatch.setattr(orchestrator_module, "call_llm_with_tools", _fake_call_llm_with_tools)
+
+    orchestrator_module._queue_write_action(state, [])
+
+    assert captured_update_ticket_kwargs["citation_doc_id"] == RUNBOOK_DOC_ID
+    injected_content = captured_compose_messages[0][-1]["content"]
+    assert RUNBOOK_DOC_ID in injected_content
+    assert "RB-DISK-001" not in injected_content
+
+
+def test_replan_grounds_write_in_new_hypothesis_citation(monkeypatch):
+    # Round 1 cites RB-DISK-001 under one hypothesis; round 2 replans to a
+    # different hypothesis and cites RUNBOOK_DOC_ID (RB-DB-001). Even though
+    # RB-DISK-001 is never explicitly retracted, the write must still be
+    # grounded in RB-DB-001 -- the citation supporting the CURRENT
+    # hypothesis -- not the stale one from the abandoned hypothesis.
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "query_logs", _stub_tool(status="ok")
+    )
+
+    # Returns chunks for BOTH doc_ids so each is a valid _can_resolve
+    # citation regardless of which round cites it -- this test is about
+    # write-grounding order, not about the observed-doc_id gate.
+    def _search_runbooks_stub(**kwargs):
+        return {
+            "status": "ok",
+            "data": {
+                "chunks": [
+                    {"doc_id": "RB-DISK-001", "section": "diagnosis", "text": "t", "score": 0.9},
+                    {"doc_id": RUNBOOK_DOC_ID, "section": "diagnosis", "text": "t", "score": 0.9},
+                ]
+            },
+            "summary": "stub",
+        }
+
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY, "search_runbooks", _search_runbooks_stub
+    )
+
+    responses = [
+        _make_tool_call_response(
+            [_tool_call("c1", "search_runbooks", {"query": "disk full"})]
+        ),
+        _assessment_response("disk full", 0.6, True, citations=["RB-DISK-001"]),
+        _make_tool_call_response(
+            [_tool_call("c2", "query_logs", {"service": "checkout", "window": "1h", "level": "ERROR"})]
+        ),
+        _assessment_response(
+            "db_connection_pool_exhaustion", 0.9, True, citations=[RUNBOOK_DOC_ID]
+        ),
+    ]
+    responses.append(_make_text_response(WRITE_GATE_FIX_TEXT))
+    _install_responses(monkeypatch, responses)
+
+    state = run_agent_loop(TICKET_ID)
+
+    assert state.status == "resolved"
+    assert state.citations[-1] == RUNBOOK_DOC_ID
+    write_entry = next(
+        entry
+        for entry in state.trajectory
+        if entry.get("tool_call") and entry["tool_call"].get("name") == "update_ticket"
+    )
+    assert write_entry["tool_call"]["arguments"]["citation_doc_id"] == RUNBOOK_DOC_ID
+
+
+# ---------------------------------------------------------------------------
+# 40. _build_critic_digest surfaces state.citations so the critic can
+# actually retract a stale one.
+# ---------------------------------------------------------------------------
+def test_critic_digest_includes_previously_cited_section():
+    state = TaskState(ticket_id=TICKET_ID, description="x")
+    state.citations = ["RB-DISK-001"]
+
+    digest = orchestrator_module._build_critic_digest(state, [])
+
+    assert "Previously cited" in digest
+    assert "RB-DISK-001" in digest
+
+
+def test_critic_digest_previously_cited_section_empty_case():
+    state = TaskState(ticket_id=TICKET_ID, description="x")
+    state.citations = []
+
+    digest = orchestrator_module._build_critic_digest(state, [])
+
+    assert "Previously cited" in digest
+    assert "(none yet)" in digest
+
+
+# ---------------------------------------------------------------------------
+# 39. Regression fixtures (tests/fixtures/citation_regression/): the digest
+# built from each trimmed real-sweep capture still surfaces the runbook
+# doc_id the critic should cite, guarding the F7 hoisting that makes doc_id
+# visible in the digest at all.
+# ---------------------------------------------------------------------------
+_FIXTURES_DIR = os.path.join(
+    os.path.dirname(__file__), "fixtures", "citation_regression"
+)
+
+
+@pytest.mark.parametrize("ticket_fixture", ["T009", "T024", "T038"])
+def test_citation_regression_fixture_digest_surfaces_expected_doc_id(ticket_fixture):
+    with open(os.path.join(_FIXTURES_DIR, f"{ticket_fixture}.json")) as f:
+        fixture = json.load(f)
+
+    state = TaskState(
+        ticket_id=fixture["ticket_id"],
+        description=fixture["description"],
+        hypothesis=fixture["hypothesis"],
+        trajectory=fixture["trajectory"],
+    )
+
+    digest = orchestrator_module._build_critic_digest(state, [])
+
+    assert f'doc_ids=[\'{fixture["expected_doc_id"]}\'' in digest or fixture[
+        "expected_doc_id"
+    ] in digest
+
+
+# ---------------------------------------------------------------------------
+# 40. Live replay (F7): rebuilds each citation_regression fixture's digest
+# and calls the REAL critic, asserting it cites the expected runbook doc_id.
+# Costs real tokens -- deselected by default (see pytest.ini's `live`
+# marker). This is the replay evidence documented in
+# tests/fixtures/citation_regression/README.md: replaying the exact final
+# digests of T009/T024/T038 against the live critic returns the correct
+# doc_id 9/9 times, confirming these tickets falsely escalated purely from
+# the state-management bug (the unconditional citations overwrite) and not
+# from any weakness in the critic's judgment or retrieval.
+# ---------------------------------------------------------------------------
+@pytest.mark.live
+@pytest.mark.parametrize("ticket_fixture", ["T009", "T024", "T038"])
+def test_citation_regression_fixture_live_critic_cites_expected_doc_id(ticket_fixture):
+    """Hits the real Groq API -- costs real API calls, requires GROQ_API_KEY.
+
+    Deselected by default via pytest.ini; run explicitly with `pytest -m live`.
+    """
+    if not os.environ.get("GROQ_API_KEY") and not os.environ.get("LLM_API_KEY"):
+        pytest.skip("GROQ_API_KEY/LLM_API_KEY not set")
+
+    with open(os.path.join(_FIXTURES_DIR, f"{ticket_fixture}.json")) as f:
+        fixture = json.load(f)
+
+    state = TaskState(
+        ticket_id=fixture["ticket_id"],
+        description=fixture["description"],
+        hypothesis=fixture["hypothesis"],
+        trajectory=fixture["trajectory"],
+    )
+
+    assessment, errored = orchestrator_module._run_critic(state, [])
+
+    assert not errored
+    assert assessment is not None
+    assert fixture["expected_doc_id"] in assessment.citations
