@@ -893,3 +893,67 @@ Four known failures remain, all with logged causes and none in the constraint pa
       search_runbooks score swings roughly 0.37-0.75 on query phrasing alone, with SCORE_THRESHOLD
       sitting at 0.50 in the middle of that band. T039 and T049 are both decided by that coin flip
 - [ ] Baseten rate card, so estimated_cost_usd can be computed at all
+
+## Phase 9a Part B — the scorer (2026-08-23) COMPLETE
+- [x] eval/metrics.py: every Session 9a metric as a PURE function (no file I/O, no network),
+      testable against hand-built fixtures rather than the real sweep
+- [x] eval/known_issues.py: declarative config, not ticket IDs scattered through the scorer. A
+      known issue applies ONLY when the ticket fails AND its status matches the documented
+      expect_status, so a ticket failing a NEW way is reported as unexplained rather than absorbed
+      — the known bucket must never become somewhere bugs hide. A known-issue ticket that PASSES is
+      flagged stale_known_issue so the list gets pruned. Known issues are never counted as successes
+- [x] eval/report.py: aggregates and renders; delegates all scoring to metrics.py, reimplements
+      nothing. Writes eval/results/report.md + report.json — the tracked eval history those two
+      files were un-ignored for back in Part A. Before this, EVERY figure quoted in this log came
+      from throwaway analysis scripts
+- [x] tests/test_safety.py: new dedicated hard-gate suite for the unauthorized-write path
+- [x] 368 passed, 1 skipped, 6 deselected
+
+### What the scorer found that hand-analysis had missed
+The "59/63" headline quoted throughout this log measures status against expected_behavior only.
+The Session 9a spec's correct_resolution ALSO requires the hypothesis to match gold_root_cause,
+and a strict lexical rule puts that at 13/63. Both are real measurements of different things, so
+BOTH are reported under explicit names rather than one being quietly chosen:
+- task_success_status_only     59/63 (93.7%)
+- task_success_strict_lexical  13/63 (20.6%)
+- hypothesis_semantic          PENDING (Session 9b judge)
+- [ ] The 46-ticket gap is an OPEN QUESTION, not a bug to tune away. The misses are abbreviations
+      (`db` vs "database", 10 tickets), category prefixes that merely duplicate ticket.category
+      (`network_`, `deploy_`), and nominalisations (`exhaustion` vs "exhausting"). No alias map and
+      no relaxed rule were added, deliberately — loose token matching is what caused the
+      constraint-parser defects earlier in this same log. Whether the agent is diagnosing
+      imprecisely or merely using different vocabulary is a SEMANTIC question and belongs to 9b's
+      judge; hypothesis_semantic_verdict returns "pending" and is forbidden from dressing the
+      lexical answer up as a semantic one
+- classify_outcome buckets on status-only and carries the lexical result alongside. Bucketing on
+  strict lexical would reclassify 46 successful tickets as unexplained failures and drown the four
+  real known issues, destroying the distinction this log draws
+
+### Safety gate — rendered FIRST in report.md, before any other section
+Current status PARTIAL, and it must not be reported as passing:
+- unauthorized_write_block_rate: 3/3 enforced tests passed (0 failed)
+- injection_block_rate: NOT COMPUTED — the adversarial ticket set does not exist
+Two counting rules were corrected before this was honest: SKIPS ARE EXCLUDED FROM THE DENOMINATOR
+(the first render showed "3/4 passed" for a suite reporting 3 passed + 1 skipped, which reads as a
+25% failure of the write gate and is false), and FAIL keys only off failed/error counts, never off
+skips, so an unwritten test can never masquerade as a failing one.
+- [ ] Build the adversarial ticket set so injection_block_rate can be measured. Until then the
+      safety gate is structurally incapable of reporting anything but PARTIAL
+
+### Cost is computable again
+Baseten's rates were confirmed by the project owner (2026-08-23) as matching the original Groq
+card. docs/design.md's note that cost was UNCOMPUTED is corrected. report.py keys the rate card off
+LLM_BASE_URL and PRINTS which card it used and where the rate came from — a reader must see the
+provenance, not just the number, because every dollar figure in this log was once computed against
+the wrong provider's card. A provider not on file still renders UNCOMPUTED rather than defaulting.
+Measured: mean $0.004/ticket, p50 $0.003, p95 $0.009 — consistent with the budget figure already on
+record, an independent check that the arithmetic is right this time.
+
+### Next
+- [ ] Session 9b: the RAGAS/LLM-judge layer, which owns hypothesis_semantic and merges into
+      report.json's existing structure
+- [ ] retrieval_recall_at_3_corpus sits behind --with-corpus-recall (off by default, needs a chroma
+      index). Note it measures a DIFFERENT thing from retrieval_recall_at_3_observed: corpus recall
+      queries with ticket text, observed recall reflects the agent's own log-derived queries — the
+      distinction behind the whole rag_heavy finding
+- [ ] Loop-guard recovery remains the largest remaining agent failure class (T025, T029)
