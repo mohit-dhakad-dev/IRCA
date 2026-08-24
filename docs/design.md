@@ -374,6 +374,15 @@ enough to support it).
 Cost control: mark all RAGAS/judge calls @pytest.mark.live equivalent — a standalone script, 
 not part of default pytest. Report per-metric LLM call count and cost before running on all 63.
 
+RAGAS metrics — which are informative given doc-level-only citation granularity:
+
+context_precision: structurally floored (see above) — relative ranking only.
+context_recall: near-tautological for this dataset — ground_truth (gold runbook's Fix section) and contexts (cited runbook's chunks) are the same document by construction whenever citation is correct, so high recall mostly confirms "the agent cited the right document," which citation_presence_rate (already 49/49) already tells us. Not an independent signal here.
+faithfulness and answer_relevancy are the two metrics carrying real information for this project: both compare the agent's free-text answer against source material the agent didn't trivially determine (faithfulness: does the answer's content follow from the cited chunks; relevancy: does the answer actually address the question). These are the ones to weight in interpretation and in the report's headline framing.
+Net effect: report all four for completeness, but the write-up/interview narrative should center faithfulness + answer_relevancy, with precision/recall explicitly caveated rather than presented as equally meaningful.
+
+Evaluation cost and wall clock: RAGAS evaluation is provider-latency-bound, not orchestration-bound. Measured on the 3-ticket subset against Baseten: max_workers=4 took 11m20s and max_workers=16 took 11m49s — 27 LLM calls at roughly 26s/call, effectively serial, despite correct single-batch submission. Concurrency settings had no measurable effect. Full-gap-set (46 tickets) evaluation therefore costs about 3 hours of wall clock for roughly $0.18 at the on-file Baseten rate card — accepted as a reasonable tradeoff rather than optimized further.
+
 Memory & State
 Type
 What's stored
@@ -518,6 +527,12 @@ Permission system: tools tagged READ vs WRITE; WRITE tools always route through 
 Prompt-injection defenses: tool outputs and RAG chunks wrapped in clearly delimited "untrusted data" blocks with an explicit system instruction that content inside can never alter the agent's plan/tool authorization; verified via the adversarial benchmark category, not just claimed.
 Human approval: required for all WRITE actions; UI/CLI is minimal (approve/reject prompt) for MVP.
 
+## Recurring failure patterns
+
+Cross-cutting defect classes observed more than once, recorded here so the next instance is recognized faster rather than re-diagnosed from scratch.
+
+Concrete validation of the "incomplete data must be visibly incomplete" principle: the NaN-accounting design — built preemptively, before any bug was known — caught a hardcoded-string-key mismatch in context_recall that a bare mean would have silently absorbed. LLMContextRecall reports its score under `.name == "context_recall"`, but the module hardcoded "llm_context_recall", so every sample's score was discarded as None and reported as 0/3 scored. Three of the four hardcoded names were correct, which made the failure look like a provider or timeout problem rather than a lookup bug; two wrong diagnoses (job-queue starvation, then metric incompatibility) were ruled out by experiment before the real cause was found. The fix — derive keys from the metric object's own `.name` and raise on mismatch — is a general pattern worth applying anywhere a metric name is referenced by string literal instead of by the object's identity. A follow-on audit found a second instance of the same class in the fix itself: pairing names to keys positionally via zip, which would transpose scores with no NaN and no guard trip.
+
 Retrieval-score variance: distinct from the task-outcome variance recorded elsewhere (the
 run-to-run success/escalation flip on identical tickets under temperature > 0 — see Step 9 and
 PROGRESS.md). This is variance in search_runbooks' best-chunk score for the SAME ticket, with the
@@ -545,6 +560,8 @@ observation that T015's escalation was never enforced by design — it depended 
 happening to phrase a query that scored 0.43 — which this generalises from a single-ticket
 anecdote into a corpus-wide property of the retrieval gate. SCORE_THRESHOLD is left unchanged
 pending a decision.
+
+Judge-metric variance: a third member of the same variance class as task-outcome variance (T001, recorded elsewhere — see Step 9 and PROGRESS.md, above) and retrieval-score variance (T049, above). Faithfulness, and likely the other RAGAS LLM-judge metrics, shows real run-to-run variance even at temperature 0. Observed directly across two identical subset-3 runs: aggregate faithfulness moved 0.944 → 0.867, with T001 at 0.833 → 0.800 and T003 at 1.000 → 0.800. Single-sweep RAGAS numbers in the final report must be presented as approximate single-sample figures, not precise point estimates — the same caveat class as task-outcome and retrieval-score variance.
 
 Threat model: the attacker is anyone who can influence ticket text, log content, or (if you extend the corpus) runbook content — i.e., indirect prompt injection via data the agent is supposed to read. The defense is architectural (tool-output ≠ instruction, permission tiers enforced outside the LLM) rather than purely prompt-based, because prompt-only defenses are known to be unreliable.
 

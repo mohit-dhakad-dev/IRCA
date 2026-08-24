@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "base_url": "https://inference.baseten.co/v1",
+    "model": "openai/gpt-oss-120b"
+  },
+  "config": {
+    "subset": 3,
+    "gap_set": true,
+    "timeout": 1200,
+    "max_workers": 16,
+    "strictness": 1,
+    "n_tickets": 3
+  },
+  "metrics": {
+    "faithfulness": {
+      "mean": 0.8666666666666667,
+      "n_scored": 3,
+      "n_total": 3,
+      "n_nan": 0,
+      "complete": true
+    },
+    "answer_relevancy": {
+      "mean": 0.598051054939083,
+      "n_scored": 3,
+      "n_total": 3,
+      "n_nan": 0,
+      "complete": true
+    },
+    "llm_context_precision_with_reference": {
+      "mean": 0.99999999998,
+      "n_scored": 3,
+      "n_total": 3,
+      "n_nan": 0,
+      "complete": true
+    },
+    "llm_context_recall": {
+      "mean": null,
+      "n_scored": 0,
+      "n_total": 3,
+      "n_nan": 3,
+      "complete": false
+    }
+  },
+  "usage": {
+    "captured": true,
+    "prompt_tokens": 30580,
+    "completion_tokens": 11844,
+    "total_tokens": 42424,
+    "llm_calls": 27
+  },
+  "per_ticket": [
+    {
+      "ticket_id": "T001",
+      "category": "easy",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.5307847886634773,
+      "llm_context_precision_with_reference": 0.99999999998,
+      "llm_context_recall": null
+    },
+    {
+      "ticket_id": "T002",
+      "category": "easy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.6496552091329935,
+      "llm_context_precision_with_reference": 0.99999999998,
+      "llm_context_recall": null
+    },
+    {
+      "ticket_id": "T003",
+      "category": "easy",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.6137131670207779,
+      "llm_context_precision_with_reference": 0.99999999998,
+      "llm_context_recall": null
+    }
+  ]
+}

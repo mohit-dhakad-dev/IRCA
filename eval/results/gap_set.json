@@ -1,0 +1,511 @@
+{
+  "n": 46,
+  "tickets": [
+    {
+      "ticket_id": "T001",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "Checkout API 500 errors are caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException and request rejections"
+    },
+    {
+      "ticket_id": "T002",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Redis is hitting its maxmemory limit, causing OOM errors and evictions which reduced cache hit rate and increased application latency"
+    },
+    {
+      "ticket_id": "T003",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Ingress is hitting connection limits and failing to establish upstream connections, resulting in upstream connect errors and 502/503 responses"
+    },
+    {
+      "ticket_id": "T004",
+      "category": "easy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.75,
+      "hypothesis": "The readiness probe is failing because the probe endpoint is misconfigured or the application\u2019s startup time exceeds the configured initialDelaySeconds/timeoutSeconds, causing connection\u2011refused and timeout errors"
+    },
+    {
+      "ticket_id": "T006",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The order service is exhausting its database connection pool, likely due to an undersized pool or a connection leak, leading to ConnectionPoolTimeoutException errors under moderate load."
+    },
+    {
+      "ticket_id": "T007",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Redis is exceeding its maxmemory limit, triggering OOM errors and rapid key evictions, which cause cache misses, increased database reads, and slower API performance especially before noon when memory usage peaks."
+    },
+    {
+      "ticket_id": "T008",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "The latest release introduced a bug that broke the platform\u2019s readiness endpoint, causing connection refusals and HTTP 503 responses, leading to failing health checks and pod restarts."
+    },
+    {
+      "ticket_id": "T009",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The storage volume is full, causing disk full errors that prevent the analytics collector from writing events and rotating logs."
+    },
+    {
+      "ticket_id": "T010",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "gold_runbook_id": "RB-AUTH-001.md",
+      "citations": [
+        "RB-AUTH-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Some auth\u2011api nodes are still using the old signing key after the recent key rotation, causing signature verification failures and intermittent 401 responses depending on which node handles the request."
+    },
+    {
+      "ticket_id": "T011",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "Backend services are hitting connection limits during the nightly batch, causing upstream connect errors and the regional load balancer to reject new TCP connections"
+    },
+    {
+      "ticket_id": "T012",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The collector failures are caused by disk space exhaustion on the node, leading to \"No space left on device\" errors and inability to write temporary files."
+    },
+    {
+      "ticket_id": "T013",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the canary rollout from progressing"
+    },
+    {
+      "ticket_id": "T016",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The billing API is experiencing database connection pool exhaustion, causing ConnectionPoolTimeoutException errors that result in intermittent 500 responses during peak traffic"
+    },
+    {
+      "ticket_id": "T017",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "The session-cache has exceeded its configured maxmemory limit, triggering OOM errors and evictions that caused the hit\u2011rate to drop from 94% to 68% while memory usage stayed above 91%"
+    },
+    {
+      "ticket_id": "T018",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The load balancer\u2019s ingress connection limit is being exceeded, triggering ingress_max_connections_exceeded alerts and upstream connect errors, which cause the storefront request timeouts during the flash sale."
+    },
+    {
+      "ticket_id": "T020",
+      "category": "easy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "gold_runbook_id": "RB-AUTH-001.md",
+      "citations": [
+        "RB-AUTH-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "Some auth\u2011api instances have not been updated with the newly rotated signing key, causing JWT signature verification failures and resulting in 401 errors for mobile clients routed to those instances."
+    },
+    {
+      "ticket_id": "T021",
+      "category": "easy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The archival job is failing because the log partition is out of disk space, leading to disk full errors (e.g., \"No space left on device\")"
+    },
+    {
+      "ticket_id": "T022",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "Checkout service failures are caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException errors and request timeouts"
+    },
+    {
+      "ticket_id": "T023",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.92,
+      "hypothesis": "The product-recommendation cache is exceeding its configured maxmemory limit, causing OOM errors and rapid key evictions that lead to cache thrashing and a drop in hit rate."
+    },
+    {
+      "ticket_id": "T024",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Ingress service is hitting its configured maximum connections limit, causing the connection queue depth to exceed its limit, resulting in upstream connect errors and a wave of 502 responses between 9\u201110\u202fAM."
+    },
+    {
+      "ticket_id": "T026",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The invoicing service slowdown is caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException errors and timeouts while waiting for a connection."
+    },
+    {
+      "ticket_id": "T027",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The search service cache node (Redis) has exceeded its maxmemory limit, triggering OOM errors and rapid key evictions, which cause cache\u2011miss fallbacks to the database and slower search response times."
+    },
+    {
+      "ticket_id": "T028",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "Intermittent upstream connectivity failures causing ingress upstream connect errors, leading to connection resets and temporary queue buildup, which manifests as flaky behavior for mobile app users"
+    },
+    {
+      "ticket_id": "T030",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "gold_runbook_id": "RB-AUTH-001.md",
+      "citations": [
+        "RB-AUTH-001"
+      ],
+      "confidence": 0.75,
+      "hypothesis": "Recent authentication key rotation caused signature verification failures for requests from certain issuer nodes, leading to intermittent login errors"
+    },
+    {
+      "ticket_id": "T031",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The export job is failing because the disk/volume it writes to has run out of space, leading to \"No space left on device\" errors and log rotation failures."
+    },
+    {
+      "ticket_id": "T032",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The reporting service hangs because the database connection pool is exhausted during the reporting job, causing ConnectionPoolTimeoutException errors and request timeouts."
+    },
+    {
+      "ticket_id": "T033",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.92,
+      "hypothesis": "The profile service\u2019s Redis cache is exceeding its configured maxmemory limit, causing OOM errors and frequent cache\u2011fallbacks, which leads to the observed gradual latency increase and rising memory usage."
+    },
+    {
+      "ticket_id": "T034",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Ingress service is hitting its max\u2011connections limit during the automated batch windows, causing upstream connect errors and connection resets that appear as gateway errors for some API calls"
+    },
+    {
+      "ticket_id": "T035",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Readiness probes are failing because the application pods are not fully initialized (warm\u2011up) when traffic is routed, leading to connection\u2011refused errors and CrashLoopBackOff events"
+    },
+    {
+      "ticket_id": "T037",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "Backup failures are caused by the target volume running out of disk space, triggering \"No space left on device\" errors during backup operations."
+    },
+    {
+      "ticket_id": "T038",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Payments service experiences database connection pool exhaustion causing connection timeouts, which leads to the retry queue backing up during burst periods."
+    },
+    {
+      "ticket_id": "T040",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Ingress proxy is failing to establish upstream connections under load, causing upstream connect errors and resulting in dashboard timeouts"
+    },
+    {
+      "ticket_id": "T041",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The checkout service's database connection pool is exhausted, causing ConnectionPoolTimeoutException errors that cascade to the API gateway and reporting worker, leading to elevated error rates across services."
+    },
+    {
+      "ticket_id": "T042",
+      "category": "tool_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The recommendation service is experiencing out-of-memory (OOM) errors because its cache memory usage exceeds the configured maxmemory limit, leading to OOM command failures and service disruption."
+    },
+    {
+      "ticket_id": "T043",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The shared ingress layer is saturated, causing upstream connection errors (e.g., \"upstream connect error while proxying request\") for both the public API and the internal admin console, which manifest as gateway errors."
+    },
+    {
+      "ticket_id": "T044",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "Service C has a readiness probe misconfiguration causing connection refusals and CrashLoopBackOff, leading to its health check failure during the rollout"
+    },
+    {
+      "ticket_id": "T045",
+      "category": "tool_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "gold_runbook_id": "RB-AUTH-001.md",
+      "citations": [
+        "RB-AUTH-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "Login failures are caused by a mismatched or invalid shared signing key used by both the mobile gateway and partner API, leading to signature verification failures for incoming requests."
+    },
+    {
+      "ticket_id": "T046",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.78,
+      "hypothesis": "Disk space exhaustion on the ingestion host is causing write failures across the analytics pipeline, archival job, and ingestion service"
+    },
+    {
+      "ticket_id": "T047",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The order service\u2019s database connection pool is exhausted (ConnectionPoolTimeoutException), causing its latency and propagating delays to the inventory service and notification worker."
+    },
+    {
+      "ticket_id": "T049",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.92,
+      "hypothesis": "The lookup service cache has exceeded its configured maxmemory limit, triggering OOM errors and memory\u2011pressure evictions, which cause increased latency and force reads to fall back to the primary store."
+    },
+    {
+      "ticket_id": "T050",
+      "category": "rag_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "gold_runbook_id": "RB-NETWORK-001.md",
+      "citations": [
+        "RB-NETWORK-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "Ingress is failing to establish upstream connections during peak traffic, resulting in upstream connect errors and mid\u2011handshake drops due to connection\u2011queue saturation and upstream connection exhaustion"
+    },
+    {
+      "ticket_id": "T051",
+      "category": "rag_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "gold_runbook_id": "RB-DEPLOY-001.md",
+      "citations": [
+        "RB-DEPLOY-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "The readiness/liveness probe is misconfigured\u2014its initialDelaySeconds or timeoutSeconds are too short for the new release to become ready, causing the health check to fail immediately after startup."
+    },
+    {
+      "ticket_id": "T052",
+      "category": "rag_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "gold_runbook_id": "RB-AUTH-001.md",
+      "citations": [
+        "RB-AUTH-001"
+      ],
+      "confidence": 0.85,
+      "hypothesis": "A recent credential refresh introduced a new signing key that was not uniformly propagated to all auth\u2011api nodes, causing signature verification failures on nodes with outdated keys and resulting in intermittent authentication errors for some users."
+    },
+    {
+      "ticket_id": "T053",
+      "category": "rag_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "gold_runbook_id": "RB-DISK-001.md",
+      "citations": [
+        "RB-DISK-001"
+      ],
+      "confidence": 0.9,
+      "hypothesis": "The volume has run out of space due to excessive log generation, causing write operations to fail with \u201cNo space left on device\u201d errors."
+    },
+    {
+      "ticket_id": "T054",
+      "category": "rag_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "gold_runbook_id": "RB-DB-001.md",
+      "citations": [
+        "RB-DB-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The checkout failures are caused by the database connection pool being exhausted\u2014the connection manager\u2019s limit on simultaneous handles is too low, leading to ConnectionPoolTimeoutException and request rejections during high load."
+    },
+    {
+      "ticket_id": "T055",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "gold_runbook_id": "RB-MEMORY-001.md",
+      "citations": [
+        "RB-MEMORY-001"
+      ],
+      "confidence": 0.95,
+      "hypothesis": "The personalization service's fast\u2011lookup cache (e.g., Redis) has exceeded its configured maxmemory limit, triggering OOM errors and entry eviction, which causes the observed sluggishness and inconsistency."
+    }
+  ]
+}

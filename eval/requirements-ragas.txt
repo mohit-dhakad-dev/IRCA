@@ -1,0 +1,16 @@
+# RAGAS lives in a SEPARATE interpreter (venv-ragas), never in the project
+# venv (requirements.txt) -- installing it there downgrades `openai` to
+# 3.3.1, which breaks agent/llm.py's dependency on a newer openai SDK.
+#
+# Build it with:
+#   python3 -m venv venv-ragas
+#   venv-ragas/bin/pip install -r eval/requirements-ragas.txt
+#
+# Versions below are pinned to what is actually installed in venv-ragas
+# (see `venv-ragas/bin/pip list`). langchain-community is pinned to 0.3.31
+# because 0.4.x removed langchain_community.chat_models.vertexai, which
+# breaks `import ragas`.
+ragas==0.4.3
+langchain-openai==1.6.0
+langchain-community==0.3.31
+sentence-transformers==6.0.0

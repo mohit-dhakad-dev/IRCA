@@ -16,3 +16,4 @@ eval/results/runs/
 
 # transient sweep logs
 .sweep*.log
+venv-ragas/
