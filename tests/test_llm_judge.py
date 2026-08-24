@@ -157,6 +157,139 @@ def test_prompt_contains_required_fields_and_is_blind_to_prior_metrics():
     assert "task_success" not in prompt
 
 
+def test_resolve_ticket_input_uses_raw_when_present(tmp_path, monkeypatch):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "T1.json").write_text(
+        json.dumps(
+            {
+                "state": {"hypothesis": "raw hypothesis"},
+                "ticket": {"category": "easy"},
+            }
+        )
+    )
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    gap_set_records = {"T1": {"hypothesis": "gap_set hypothesis", "category": "hard"}}
+    hypothesis, category, source = llm_judge.resolve_ticket_input("T1", gap_set_records)
+    assert source == "raw"
+    assert hypothesis == "raw hypothesis"
+    assert category == "easy"
+
+
+def test_resolve_ticket_input_falls_back_to_gap_set(tmp_path, monkeypatch):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    gap_set_records = {"T2": {"hypothesis": "gap_set hypothesis", "category": "hard"}}
+    hypothesis, category, source = llm_judge.resolve_ticket_input("T2", gap_set_records)
+    assert source == "gap_set"
+    assert hypothesis == "gap_set hypothesis"
+    assert category == "hard"
+
+
+def test_resolve_ticket_input_fails_loudly_with_neither_source(tmp_path, monkeypatch):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    gap_set_records = {}
+    hypothesis, category, source = llm_judge.resolve_ticket_input("T3", gap_set_records)
+    assert hypothesis is None
+    assert source is None
+
+
+def test_run_counts_neither_source_ticket_in_n_failed_not_false(monkeypatch, tmp_path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    class Args:
+        only = "MISSING"
+        gap_set = False
+        gap_set_file = None
+        subset = None
+        repeats = 1
+
+    monkeypatch.setattr(
+        llm_judge,
+        "load_tickets",
+        lambda: {"MISSING": {"id": "MISSING", "ticket_text": "t", "gold_root_cause": "slug", "category": "easy"}},
+    )
+    monkeypatch.setattr(llm_judge, "call_llm_with_tools", lambda *a, **k: pytest.fail("no live calls"))
+
+    report = llm_judge.run(Args())
+    assert report["summary"]["n_failed"] == 1
+    assert report["summary"]["n_judged"] == 0
+    assert report["per_ticket"][0]["verdict"] is None
+    assert report["per_ticket"][0]["verdict"] is not False
+    assert report["per_ticket"][0]["source"] is None
+
+
+def test_raw_wins_over_gap_set_when_they_disagree(monkeypatch, tmp_path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "T4.json").write_text(
+        json.dumps({"state": {"hypothesis": "raw wins"}, "ticket": {"category": "easy"}})
+    )
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    gap_set_records = {"T4": {"hypothesis": "gap_set loses", "category": "easy"}}
+    hypothesis, _category, source = llm_judge.resolve_ticket_input("T4", gap_set_records)
+    assert hypothesis == "raw wins"
+    assert source == "raw"
+
+
+def test_run_config_sources_counts_for_mixed_set(monkeypatch, tmp_path):
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "A.json").write_text(
+        json.dumps({"state": {"hypothesis": "hyp A raw"}, "ticket": {"category": "easy"}})
+    )
+    monkeypatch.setattr(llm_judge, "RAW_DIR", raw_dir)
+
+    gap_set_path = tmp_path / "gap_set.json"
+    gap_set_path.write_text(
+        json.dumps(
+            {
+                "tickets": [
+                    {"ticket_id": "B", "hypothesis": "hyp B gap_set", "category": "easy"},
+                ]
+            }
+        )
+    )
+
+    class Args:
+        only = "A,B,C"
+        gap_set = False
+        gap_set_file = str(gap_set_path)
+        subset = None
+        repeats = 1
+
+    monkeypatch.setattr(
+        llm_judge,
+        "load_tickets",
+        lambda: {
+            tid: {"id": tid, "ticket_text": f"text {tid}", "gold_root_cause": "slug", "category": "easy"}
+            for tid in "ABC"
+        },
+    )
+
+    def fake_judge_once(ticket_text, category, hypothesis, gold_root_cause):
+        return True, "ok", None
+
+    monkeypatch.setattr(llm_judge, "judge_once", fake_judge_once)
+
+    report = llm_judge.run(Args())
+    assert report["config"]["sources"] == {"raw": 1, "gap_set": 1}
+    assert report["summary"]["n_failed"] == 1
+    by_id = {t["ticket_id"]: t for t in report["per_ticket"]}
+    assert by_id["A"]["source"] == "raw"
+    assert by_id["B"]["source"] == "gap_set"
+    assert by_id["C"]["source"] is None
+
+
 def test_gap_set_selects_46_tickets():
     class Args:
         only = None

@@ -174,10 +174,42 @@ def load_tickets() -> dict[str, dict]:
     return {t["id"]: t for t in tickets}
 
 
-def load_gap_set_ids() -> list[str]:
-    with open(GAP_SET_PATH) as f:
+def load_gap_set_ids(gap_set_path: str | Path = GAP_SET_PATH) -> list[str]:
+    with open(gap_set_path) as f:
         data = json.load(f)
     return [t["ticket_id"] for t in data["tickets"]]
+
+
+def load_gap_set_records(gap_set_path: str | Path = GAP_SET_PATH) -> dict[str, dict]:
+    """Ticket rows from the committed gap_set.json, keyed by ticket_id.
+
+    Used as a fallback source when eval/results/raw/{ticket_id}.json is not
+    present (that directory is gitignored and empty on a fresh checkout).
+    """
+    with open(gap_set_path) as f:
+        data = json.load(f)
+    return {t["ticket_id"]: t for t in data["tickets"]}
+
+
+def resolve_ticket_input(
+    ticket_id: str, gap_set_records: dict[str, dict]
+) -> tuple[str | None, str | None, str | None]:
+    """Returns (hypothesis, category, source).
+
+    Prefers eval/results/raw/{ticket_id}.json when present ("raw"); falls
+    back to the matching row in gap_set.json ("gap_set"). source is None if
+    neither source yields a hypothesis.
+    """
+    hypothesis = load_raw_hypothesis(ticket_id)
+    category = load_raw_category(ticket_id)
+    if hypothesis is not None:
+        return hypothesis, category, "raw"
+
+    gap_row = gap_set_records.get(ticket_id)
+    if gap_row is not None and gap_row.get("hypothesis") is not None:
+        return gap_row.get("hypothesis"), category or gap_row.get("category"), "gap_set"
+
+    return None, category, None
 
 
 def load_raw_hypothesis(ticket_id: str) -> str | None:
@@ -199,10 +231,11 @@ def load_raw_category(ticket_id: str) -> str | None:
 
 
 def resolve_ticket_ids(args) -> list[str]:
+    gap_set_path = getattr(args, "gap_set_file", None) or GAP_SET_PATH
     if args.only:
         return [t.strip() for t in args.only.split(",") if t.strip()]
     if args.gap_set:
-        ids = load_gap_set_ids()
+        ids = load_gap_set_ids(gap_set_path)
     else:
         all_tickets = load_tickets()
         ids = sorted(all_tickets.keys())
@@ -214,14 +247,16 @@ def resolve_ticket_ids(args) -> list[str]:
 def run(args) -> dict:
     tickets_by_id = load_tickets()
     ticket_ids = resolve_ticket_ids(args)
+    gap_set_path = getattr(args, "gap_set_file", None) or GAP_SET_PATH
+    gap_set_records = load_gap_set_records(gap_set_path)
 
     per_ticket = []
     for ticket_id in ticket_ids:
         ticket = tickets_by_id.get(ticket_id)
         ticket_text = ticket.get("ticket_text") if ticket else None
         gold_root_cause = ticket.get("gold_root_cause") if ticket else None
-        hypothesis = load_raw_hypothesis(ticket_id)
-        category = load_raw_category(ticket_id) or (ticket.get("category") if ticket else None)
+        hypothesis, category, source = resolve_ticket_input(ticket_id, gap_set_records)
+        category = category or (ticket.get("category") if ticket else None)
 
         if ticket is None or hypothesis is None or gold_root_cause is None:
             per_ticket.append(
@@ -230,6 +265,7 @@ def run(args) -> dict:
                     "category": category,
                     "gold_root_cause": gold_root_cause,
                     "hypothesis": hypothesis,
+                    "source": source,
                     "verdict": None,
                     "verdicts": [],
                     "agreement": 0.0,
@@ -246,6 +282,7 @@ def run(args) -> dict:
                 "category": category,
                 "gold_root_cause": gold_root_cause,
                 "hypothesis": hypothesis,
+                "source": source,
                 **result,
             }
         )
@@ -255,6 +292,7 @@ def run(args) -> dict:
     n_incorrect = sum(1 for t in per_ticket if t["verdict"] is False)
     n_failed = sum(1 for t in per_ticket if t["verdict"] is None)
     semantic_correct_rate = (n_correct / n_judged) if n_judged > 0 else None
+    sources = Counter(t["source"] for t in per_ticket if t["source"] is not None)
 
     return {
         "schema_version": 1,
@@ -268,6 +306,8 @@ def run(args) -> dict:
             "n_tickets": len(ticket_ids),
             "repeats": args.repeats,
             "gap_set": bool(args.gap_set),
+            "gap_set_file": str(gap_set_path),
+            "sources": {"raw": sources.get("raw", 0), "gap_set": sources.get("gap_set", 0)},
         },
         "summary": {
             "n_judged": n_judged,
@@ -299,11 +339,17 @@ def print_summary(report: dict) -> None:
             f"over {summary['n_judged']}/{n_total} judged "
             f"(n_correct={summary['n_correct']}, n_incorrect={summary['n_incorrect']})"
         )
+    sources = config.get("sources", {})
+    print(
+        f"input sources: raw={sources.get('raw', 0)} gap_set={sources.get('gap_set', 0)} "
+        f"(gap_set_file={config.get('gap_set_file')})"
+    )
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gap-set", action="store_true", default=True)
+    parser.add_argument("--gap-set-file", type=str, default=str(GAP_SET_PATH))
     parser.add_argument("--only", type=str, default=None)
     parser.add_argument("--subset", type=int, default=None)
     parser.add_argument("--repeats", type=int, default=1)
@@ -318,7 +364,18 @@ def main(argv=None) -> int:
 
     if args.dry_run:
         n_calls = len(ticket_ids) * args.repeats
+        gap_set_records = load_gap_set_records(args.gap_set_file)
+        raw_available = sum(1 for tid in ticket_ids if (RAW_DIR / f"{tid}.json").exists())
+        gap_set_available = sum(
+            1
+            for tid in ticket_ids
+            if not (RAW_DIR / f"{tid}.json").exists() and tid in gap_set_records
+        )
         print(f"ticket_count={len(ticket_ids)} repeats={args.repeats} projected_calls={n_calls}")
+        print(
+            f"projected input sources: raw={raw_available} gap_set={gap_set_available} "
+            f"(gap_set_file={args.gap_set_file})"
+        )
         return 0
 
     try:
