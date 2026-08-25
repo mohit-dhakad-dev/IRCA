@@ -189,6 +189,57 @@ def load_raw_hypothesis(ticket_id: str) -> str | None:
     return raw.get("state", {}).get("hypothesis")
 
 
+def load_gap_set_map() -> dict[str, dict]:
+    with open(GAP_SET_PATH) as f:
+        data = json.load(f)
+    return {t["ticket_id"]: t for t in data["tickets"]}
+
+
+def load_gap_set_hypothesis(ticket_id: str) -> str | None:
+    entry = load_gap_set_map().get(ticket_id)
+    return entry.get("hypothesis") if entry else None
+
+
+def resolve_hypothesis(ticket_id: str, source: str = "auto") -> tuple[str, str]:
+    """Returns (hypothesis, hypothesis_source) where hypothesis_source is
+    "raw" or "gap_set". Raises ValueError naming the ticket and the path(s)
+    tried if no hypothesis is available for the requested source(s).
+    """
+    raw_path = RAW_DIR / f"{ticket_id}.json"
+
+    if source == "raw":
+        hypothesis = load_raw_hypothesis(ticket_id)
+        if hypothesis is None:
+            raise ValueError(
+                f"no hypothesis for ticket {ticket_id}: --hypothesis-source=raw "
+                f"but {raw_path} is missing or has no state.hypothesis"
+            )
+        return hypothesis, "raw"
+
+    if source == "gap-set":
+        hypothesis = load_gap_set_hypothesis(ticket_id)
+        if hypothesis is None:
+            raise ValueError(
+                f"no hypothesis for ticket {ticket_id}: --hypothesis-source=gap-set "
+                f"but {GAP_SET_PATH} has no entry/hypothesis for it"
+            )
+        return hypothesis, "gap_set"
+
+    if source != "auto":
+        raise ValueError(f"unknown hypothesis source: {source!r}")
+
+    hypothesis = load_raw_hypothesis(ticket_id)
+    if hypothesis is not None:
+        return hypothesis, "raw"
+    hypothesis = load_gap_set_hypothesis(ticket_id)
+    if hypothesis is not None:
+        return hypothesis, "gap_set"
+    raise ValueError(
+        f"no hypothesis available for ticket {ticket_id}: tried raw ({raw_path}) "
+        f"and gap_set ({GAP_SET_PATH}), neither had a hypothesis"
+    )
+
+
 def load_raw_category(ticket_id: str) -> str | None:
     path = RAW_DIR / f"{ticket_id}.json"
     if not path.exists():
@@ -214,13 +265,16 @@ def resolve_ticket_ids(args) -> list[str]:
 def run(args) -> dict:
     tickets_by_id = load_tickets()
     ticket_ids = resolve_ticket_ids(args)
+    hypothesis_source_arg = getattr(args, "hypothesis_source", "auto")
 
     per_ticket = []
+    source_counts = {"raw": 0, "gap_set": 0}
     for ticket_id in ticket_ids:
         ticket = tickets_by_id.get(ticket_id)
         ticket_text = ticket.get("ticket_text") if ticket else None
         gold_root_cause = ticket.get("gold_root_cause") if ticket else None
-        hypothesis = load_raw_hypothesis(ticket_id)
+        hypothesis, hyp_source = resolve_hypothesis(ticket_id, hypothesis_source_arg)
+        source_counts[hyp_source] += 1
         category = load_raw_category(ticket_id) or (ticket.get("category") if ticket else None)
 
         if ticket is None or hypothesis is None or gold_root_cause is None:
@@ -230,6 +284,7 @@ def run(args) -> dict:
                     "category": category,
                     "gold_root_cause": gold_root_cause,
                     "hypothesis": hypothesis,
+                    "hypothesis_source": hyp_source,
                     "verdict": None,
                     "verdicts": [],
                     "agreement": 0.0,
@@ -246,9 +301,15 @@ def run(args) -> dict:
                 "category": category,
                 "gold_root_cause": gold_root_cause,
                 "hypothesis": hypothesis,
+                "hypothesis_source": hyp_source,
                 **result,
             }
         )
+
+    print(
+        f"hypothesis sources: raw={source_counts['raw']} "
+        f"gap_set={source_counts['gap_set']}"
+    )
 
     n_judged = sum(1 for t in per_ticket if t["verdict"] is not None)
     n_correct = sum(1 for t in per_ticket if t["verdict"] is True)
@@ -268,6 +329,8 @@ def run(args) -> dict:
             "n_tickets": len(ticket_ids),
             "repeats": args.repeats,
             "gap_set": bool(args.gap_set),
+            "hypothesis_source": hypothesis_source_arg,
+            "hypothesis_source_counts": source_counts,
         },
         "summary": {
             "n_judged": n_judged,
@@ -307,6 +370,12 @@ def main(argv=None) -> int:
     parser.add_argument("--only", type=str, default=None)
     parser.add_argument("--subset", type=int, default=None)
     parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument(
+        "--hypothesis-source",
+        type=str,
+        choices=["auto", "raw", "gap-set"],
+        default="auto",
+    )
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT_PATH))
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)

@@ -157,6 +157,94 @@ def test_prompt_contains_required_fields_and_is_blind_to_prior_metrics():
     assert "task_success" not in prompt
 
 
+def test_resolve_hypothesis_auto_prefers_raw(monkeypatch):
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: "raw hyp")
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: "gap hyp")
+    hypothesis, source = llm_judge.resolve_hypothesis("T001", "auto")
+    assert hypothesis == "raw hyp"
+    assert source == "raw"
+
+
+def test_resolve_hypothesis_auto_falls_back_to_gap_set(monkeypatch):
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: None)
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: "gap hyp")
+    hypothesis, source = llm_judge.resolve_hypothesis("T001", "auto")
+    assert hypothesis == "gap hyp"
+    assert source == "gap_set"
+
+
+def test_resolve_hypothesis_auto_raises_when_neither_available(monkeypatch):
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: None)
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: None)
+    with pytest.raises(ValueError) as excinfo:
+        llm_judge.resolve_hypothesis("T999", "auto")
+    msg = str(excinfo.value)
+    assert "T999" in msg
+    assert "raw" in msg
+    assert "gap_set" in msg
+
+
+def test_resolve_hypothesis_forced_raw_fails_loudly_without_fallback(monkeypatch):
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: None)
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: "gap hyp")
+    with pytest.raises(ValueError) as excinfo:
+        llm_judge.resolve_hypothesis("T001", "raw")
+    assert "T001" in str(excinfo.value)
+
+
+def test_resolve_hypothesis_forced_gap_set_fails_loudly_without_raw(monkeypatch):
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: "raw hyp")
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: None)
+    with pytest.raises(ValueError) as excinfo:
+        llm_judge.resolve_hypothesis("T001", "gap-set")
+    assert "T001" in str(excinfo.value)
+
+
+def test_run_records_hypothesis_source_per_ticket_and_counts(monkeypatch):
+    class Args:
+        only = "A,B"
+        gap_set = False
+        subset = None
+        repeats = 1
+        hypothesis_source = "auto"
+
+    args = Args()
+
+    monkeypatch.setattr(
+        llm_judge,
+        "load_tickets",
+        lambda: {
+            tid: {
+                "id": tid,
+                "ticket_text": f"text {tid}",
+                "gold_root_cause": "slug",
+                "category": "easy",
+            }
+            for tid in "AB"
+        },
+    )
+    monkeypatch.setattr(llm_judge, "load_raw_category", lambda tid: "easy")
+
+    raw_map = {"A": "raw hypothesis A"}
+    gap_map = {"B": "gap set hypothesis B"}
+    monkeypatch.setattr(llm_judge, "load_raw_hypothesis", lambda tid: raw_map.get(tid))
+    monkeypatch.setattr(llm_judge, "load_gap_set_hypothesis", lambda tid: gap_map.get(tid))
+    monkeypatch.setattr(
+        llm_judge, "call_llm_with_tools", lambda *a, **k: _fake_response(True)
+    )
+
+    report = llm_judge.run(args)
+
+    by_id = {t["ticket_id"]: t for t in report["per_ticket"]}
+    assert by_id["A"]["hypothesis_source"] == "raw"
+    assert by_id["A"]["hypothesis"] == "raw hypothesis A"
+    assert by_id["B"]["hypothesis_source"] == "gap_set"
+    assert by_id["B"]["hypothesis"] == "gap set hypothesis B"
+
+    assert report["config"]["hypothesis_source"] == "auto"
+    assert report["config"]["hypothesis_source_counts"] == {"raw": 1, "gap_set": 1}
+
+
 def test_gap_set_selects_46_tickets():
     class Args:
         only = None
