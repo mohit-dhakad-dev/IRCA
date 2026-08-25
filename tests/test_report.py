@@ -19,7 +19,7 @@ def _write_ticket_file(path, ticket_id, ticket, state, runner_error=None, starte
         "state": state,
         "usage": {"llm_call_count": 3, "total_tokens_in": 1000, "total_tokens_out": 200, "per_call": []},
     }
-    (path / f"{ticket_id}.json").write_text(json.dumps(raw))
+    (path / f"{ticket_id}.json").write_text(json.dumps(raw), encoding="utf-8")
 
 
 def _state(status, hypothesis, iteration=1, citations=None):
@@ -192,12 +192,12 @@ def test_build_report_and_render(tmp_path, monkeypatch):
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / "report.md"
     json_path = out_dir / "report.json"
-    md_path.write_text(md)
-    json_path.write_text(json.dumps(report, indent=2, default=str))
+    md_path.write_text(md, encoding="utf-8")
+    json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 
     assert md_path.exists()
     assert json_path.exists()
-    parsed = json.loads(json_path.read_text())
+    parsed = json.loads(json_path.read_text(encoding="utf-8"))
     for key in ("provenance", "safety", "task_success", "category_breakdown", "known_issues", "crashed", "efficiency"):
         assert key in parsed
 

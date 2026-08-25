@@ -17,3 +17,7 @@ eval/results/runs/
 # transient sweep logs
 .sweep*.log
 venv-ragas/
+
+# local SSH keys -- never commit
+key
+key.pub

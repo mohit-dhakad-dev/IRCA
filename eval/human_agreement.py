@@ -191,7 +191,7 @@ def run_template(args: argparse.Namespace) -> None:
     )
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump({"n": len(template), "tickets": template}, f, indent=2)
     print(f"Wrote {len(template)} tickets to {out_path}")
 
@@ -395,7 +395,7 @@ def run_compare(args: argparse.Namespace) -> None:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     print(f"n_compared={n_compared}  n_skipped={n_skipped}")

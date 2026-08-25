@@ -812,7 +812,7 @@ def main(top_k: int, rebuild: bool, layer: str) -> None:
     print(f"\nIndex path taken: {index_path_note}")
     print(f"Layer(s) calibrated this run: {layer}")
 
-    tickets = json.loads(TICKETS_PATH.read_text())
+    tickets = json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
     assert tickets, "data/tickets.json is empty"
     print(f"Tickets loaded: {len(tickets)}")
 
@@ -847,7 +847,7 @@ def main(top_k: int, rebuild: bool, layer: str) -> None:
     n_runbook_files = len(list(RUNBOOKS_DIR.glob("*.md")))
     n_tickets_with_gold_root_cause = sum(1 for t in tickets if t.get("gold_root_cause"))
     past_incidents = (
-        json.loads(PAST_INCIDENTS_PATH.read_text()) if PAST_INCIDENTS_PATH.exists() else []
+        json.loads(PAST_INCIDENTS_PATH.read_text(encoding="utf-8")) if PAST_INCIDENTS_PATH.exists() else []
     )
     n_past_incidents = len(past_incidents)
     n_distinct_root_causes = len({i["resolved_root_cause"] for i in past_incidents})

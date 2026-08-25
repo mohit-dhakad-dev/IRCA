@@ -28,8 +28,8 @@ def test_t009(chunk_index, tickets):
     assert "Rotate or prune logs immediately" in row.ground_truth
     assert not row.ground_truth.startswith("RB-DISK")
 
-    raw = json.loads((RAW_DIR / "T009.json").read_text())
-    tickets_json = json.loads((RAW_DIR.parent.parent.parent / "data" / "tickets.json").read_text())
+    raw = json.loads((RAW_DIR / "T009.json").read_text(encoding="utf-8"))
+    tickets_json = json.loads((RAW_DIR.parent.parent.parent / "data" / "tickets.json").read_text(encoding="utf-8"))
     expected_question = next(t["ticket_text"] for t in tickets_json if t["id"] == "T009")
     assert row.question == expected_question
 
@@ -68,7 +68,7 @@ def test_t011_terminal_action_id_rule(chunk_index, tickets):
     # below for the test that actually fails under that regression.
     row = build_ragas_input("T011", raw_dir=RAW_DIR, tickets=tickets, chunk_index=chunk_index)
 
-    raw = json.loads((RAW_DIR / "T011.json").read_text())
+    raw = json.loads((RAW_DIR / "T011.json").read_text(encoding="utf-8"))
     assert row.action_id == raw["state"]["pending_action_id"]
     assert row.action_id is not None
     assert "below 380 connections" not in row.answer
@@ -149,6 +149,6 @@ def test_build_all_counts():
     assert len(all_ids) == 63
     escalated = [
         t for t in all_ids
-        if json.loads((RAW_DIR / f"{t}.json").read_text())["state"]["status"] != "resolved"
+        if json.loads((RAW_DIR / f"{t}.json").read_text(encoding="utf-8"))["state"]["status"] != "resolved"
     ]
     assert len(escalated) == 14

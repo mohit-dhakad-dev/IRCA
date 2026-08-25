@@ -218,7 +218,7 @@ def test_ticket_tools_does_not_import_ticket_store():
     # path does not exist outside the approval flow" is the runtime
     # assertion elsewhere in this file that RESOLVED_TICKETS is still empty
     # immediately after update_ticket returns.
-    source = Path("tools/ticket_tools.py").read_text()
+    source = Path("tools/ticket_tools.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
 
     for node in ast.walk(tree):

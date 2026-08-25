@@ -36,7 +36,7 @@ def load_incidents(path: Path = INCIDENTS_PATH) -> list[dict]:
     if not path.is_file():
         raise ValueError(f"Past incidents file not found: {path}")
 
-    raw = json.loads(path.read_text())
+    raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, list) or not raw:
         raise ValueError(f"{path}: expected a non-empty JSON array of incidents")
 

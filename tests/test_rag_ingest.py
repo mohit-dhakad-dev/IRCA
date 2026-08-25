@@ -155,7 +155,7 @@ def test_build_index_and_idempotency(tmp_path):
 )
 def test_parse_runbook_missing_section_raises(tmp_path, case, content):
     bad_runbook = tmp_path / "RB-BAD-001.md"
-    bad_runbook.write_text(content)
+    bad_runbook.write_text(content, encoding="utf-8")
 
     with pytest.raises(ValueError):
         parse_runbook(bad_runbook)
@@ -186,7 +186,7 @@ def _fenced_runbook_content(fence: str) -> str:
 @pytest.mark.parametrize("fence", ["```", "~~~"])
 def test_parse_runbook_fence_aware(tmp_path, fence):
     runbook = tmp_path / "RB-FENCED-001.md"
-    runbook.write_text(_fenced_runbook_content(fence))
+    runbook.write_text(_fenced_runbook_content(fence), encoding="utf-8")
 
     chunks = parse_runbook(runbook)
 
@@ -223,7 +223,7 @@ def test_parse_runbook_subheader_stays_in_body(tmp_path):
         "- none\n"
     )
     runbook = tmp_path / "RB-SUB-001.md"
-    runbook.write_text(content)
+    runbook.write_text(content, encoding="utf-8")
 
     chunks = parse_runbook(runbook)
 

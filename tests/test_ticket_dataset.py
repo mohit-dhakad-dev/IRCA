@@ -10,7 +10,7 @@ TICKETS_PATH = ROOT / "data" / "tickets.json"
 def test_ticket_dataset_matches_schema_and_runbooks():
     assert TICKETS_PATH.exists(), "tickets dataset file is missing"
 
-    tickets = json.loads(TICKETS_PATH.read_text())
+    tickets = json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
     assert len(tickets) == 63
 
     categories = {
@@ -29,7 +29,7 @@ def test_ticket_dataset_matches_schema_and_runbooks():
     runbook_files = {p.name for p in RUNBOOK_DIR.glob("*.md")}
     runbook_roots = set()
     for file in runbook_files:
-        content = (RUNBOOK_DIR / file).read_text()
+        content = (RUNBOOK_DIR / file).read_text(encoding="utf-8")
         marker = "## Root Cause"
         idx = content.find(marker)
         if idx != -1:

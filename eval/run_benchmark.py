@@ -160,7 +160,7 @@ def _usage_shim():
 
 
 def _load_tickets() -> list[dict]:
-    return json.loads(TICKETS_PATH.read_text())
+    return json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
 
 
 def _select_tickets(tickets: list[dict], subset: int | None, ticket_ids: list[str] | None) -> list[dict]:
@@ -220,7 +220,7 @@ def run_one(ticket: dict, out_dir: Path) -> dict:
     out_path = out_dir / f"{ticket_id}.json"
     tmp_path = out_dir / f".{ticket_id}.json.tmp"
     try:
-        with open(tmp_path, "w") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2, default=str)
             f.flush()
             os.fsync(f.fileno())

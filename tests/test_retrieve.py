@@ -300,7 +300,7 @@ def test_closing_fence_with_info_string_does_not_close_fence(tmp_path: Path):
         "Constraints text.\n"
     )
     runbook_path = tmp_path / "RB-FENCE-001.md"
-    runbook_path.write_text(runbook_text)
+    runbook_path.write_text(runbook_text, encoding="utf-8")
 
     chunks = parse_runbook(runbook_path)
     by_section = {c.section: c for c in chunks}

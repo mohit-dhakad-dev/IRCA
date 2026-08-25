@@ -73,7 +73,7 @@ def parse_runbook(path: Path) -> list[Chunk]:
     5 expected chunk sections is missing -- silent partial ingestion is
     worse than a loud failure here.
     """
-    raw = path.read_text()
+    raw = path.read_text(encoding="utf-8")
     doc_id = path.stem
 
     title: str | None = None

@@ -72,14 +72,14 @@ KNOWN_RATE_CARDS = {
 
 
 def load_tickets(tickets_path: Path = TICKETS_PATH) -> dict:
-    tickets = json.loads(tickets_path.read_text())
+    tickets = json.loads(tickets_path.read_text(encoding="utf-8"))
     return {t["id"]: t for t in tickets}
 
 
 def load_raw_results(raw_dir: Path) -> list[dict]:
     results = []
     for path in sorted(raw_dir.glob("*.json")):
-        results.append(json.loads(path.read_text()))
+        results.append(json.loads(path.read_text(encoding="utf-8")))
     return results
 
 
@@ -745,8 +745,8 @@ def main(argv: list[str] | None = None) -> int:
 
     md_path = out_dir / "report.md"
     json_path = out_dir / "report.json"
-    md_path.write_text(render_markdown(report))
-    json_path.write_text(json.dumps(report, indent=2, default=str))
+    md_path.write_text(render_markdown(report), encoding="utf-8")
+    json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 
     print(f"Wrote {md_path}", file=sys.stderr)
     print(f"Wrote {json_path}", file=sys.stderr)

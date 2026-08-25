@@ -329,7 +329,7 @@ def main(argv=None) -> int:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     print_summary(report)

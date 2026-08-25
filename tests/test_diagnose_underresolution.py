@@ -58,7 +58,7 @@ def _write_raw(path: Path, ticket_id: str, state: dict | None, expected_behavior
         "state": state,
         "usage": {},
     }
-    (path / f"{ticket_id}.json").write_text(json.dumps(result))
+    (path / f"{ticket_id}.json").write_text(json.dumps(result), encoding="utf-8")
 
 
 def test_confidence_alone(tmp_path):

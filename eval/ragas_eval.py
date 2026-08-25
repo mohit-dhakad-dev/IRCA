@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,11 @@ DEFAULT_INPUTS_PATH = REPO_ROOT / "eval" / "results" / "ragas_inputs.json"
 DEFAULT_GAP_SET_PATH = REPO_ROOT / "eval" / "results" / "gap_set.json"
 DEFAULT_OUT_PATH = REPO_ROOT / "eval" / "results" / "ragas_scores.json"
 ENV_PATH = REPO_ROOT / ".env"
+
+# Keys every checkpoint row must carry -- anything short of this is a
+# malformed row and must fail loudly (naming the ticket and the checkpoint
+# path) rather than being silently skipped or silently re-run.
+CHECKPOINT_REQUIRED_KEYS = ("ticket_id", "category", "usage")
 
 METRIC_NAMES = [
     "faithfulness",
@@ -103,12 +109,12 @@ DEFAULT_MAX_WORKERS = 4
 
 def load_inputs(path: Path = DEFAULT_INPUTS_PATH) -> list[dict[str, Any]]:
     """Load the list of ragas-input rows written by eval/ragas_inputs.py."""
-    return json.loads(Path(path).read_text())
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def load_gap_set_ids(path: Path = DEFAULT_GAP_SET_PATH) -> set[str]:
     """Load the ticket_ids named in eval/results/gap_set.json's tickets[]."""
-    data = json.loads(Path(path).read_text())
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
     return {t["ticket_id"] for t in data["tickets"]}
 
 
@@ -304,6 +310,150 @@ def validate_metric_keys(available_keys: Any, expected_names: list[str]) -> None
         )
 
 
+# --------------------------------------------------------------------------
+# Per-ticket checkpointing -- pure functions so this stays testable under
+# the project venv (ragas absent). The full 46-ticket run was killed twice
+# mid-flight because a single whole-dataset evaluate() call only produces
+# results at the very end, losing everything both times. Replacing that
+# with one evaluate() call per ticket gives up cross-ticket parallelism
+# (ragas would otherwise interleave metric jobs across tickets); that's
+# cheap to give up here because the provider is latency-bound, not
+# throughput-bound -- max_workers=4 vs 16 made no measurable wall-clock
+# difference on a 3-ticket subset probe. Durability is worth far more than
+# that parallelism. max_workers is still passed to each per-ticket
+# RunConfig so within-ticket metric jobs (e.g. context-precision's one
+# call per retrieved context) continue to overlap.
+# --------------------------------------------------------------------------
+
+
+def default_checkpoint_path(out_path: Path | str) -> Path:
+    """Derive the default checkpoint path from the --out file's stem:
+    eval/results/.ragas_checkpoint_{stem}.jsonl."""
+    stem = Path(out_path).stem
+    return REPO_ROOT / "eval" / "results" / f".ragas_checkpoint_{stem}.jsonl"
+
+
+def _validate_checkpoint_row(obj: Any, line_no: int, path: Path | str) -> None:
+    if not isinstance(obj, dict):
+        raise ValueError(
+            f"Malformed checkpoint row in {path} at line {line_no}: "
+            f"expected a JSON object, got {type(obj).__name__}."
+        )
+    missing = [k for k in CHECKPOINT_REQUIRED_KEYS if k not in obj]
+    if missing:
+        ticket = obj.get("ticket_id", f"<unknown ticket, line {line_no}>")
+        raise ValueError(
+            f"Malformed checkpoint row for ticket {ticket} in {path}: "
+            f"missing required key(s) {missing}."
+        )
+
+
+def read_checkpoint(path: Path | str) -> list[dict[str, Any]]:
+    """Read and validate every row of a checkpoint JSONL file. Returns []
+    if the file doesn't exist. Raises ValueError naming the ticket (or
+    line, if the ticket_id itself can't be recovered) and the path for any
+    malformed line -- never silently skips or re-runs a bad row."""
+    p = Path(path)
+    if not p.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    text = p.read_text(encoding="utf-8")
+    for line_no, raw_line in enumerate(text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"Malformed checkpoint row in {path} at line {line_no}: invalid JSON ({exc})."
+            ) from exc
+        _validate_checkpoint_row(obj, line_no, path)
+        rows.append(obj)
+    return rows
+
+
+def checkpointed_ticket_ids(rows: list[dict[str, Any]]) -> set[str]:
+    """The set of ticket_ids already present in checkpoint rows."""
+    return {r["ticket_id"] for r in rows}
+
+
+def remaining_ticket_ids(all_ticket_ids: list[str], done_ids: set[str]) -> list[str]:
+    """Ticket ids not yet checkpointed, in deterministic (sorted) order so
+    a resumed run processes tickets in a predictable sequence."""
+    return sorted(t for t in all_ticket_ids if t not in done_ids)
+
+
+def append_checkpoint_row(path: Path | str, row: dict[str, Any]) -> None:
+    """Append one JSON line to the checkpoint file and force it to disk
+    immediately (flush + fsync) so the row survives an abrupt kill of the
+    process right after this call returns."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(row) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def truncate_checkpoint(path: Path | str) -> None:
+    """Used by --no-resume: discard any existing checkpoint content so a
+    fresh run doesn't mix its rows with a stale prior attempt's."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8"):
+        pass
+
+
+def aggregate_usage(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Sum per-ticket usage across ALL rows (checkpointed + fresh) into
+    the same usage block shape the single-run evaluate() call used to
+    produce. captured is True iff the summed tokens are nonzero -- an
+    honest "NOT CAPTURED" is preserved when every row's usage was empty."""
+    prompt_tokens = sum((r.get("usage") or {}).get("prompt_tokens") or 0 for r in rows)
+    completion_tokens = sum((r.get("usage") or {}).get("completion_tokens") or 0 for r in rows)
+    llm_calls = sum((r.get("usage") or {}).get("llm_calls") or 0 for r in rows)
+    captured = (prompt_tokens + completion_tokens) > 0
+    return {
+        "captured": captured,
+        "prompt_tokens": prompt_tokens if captured else None,
+        "completion_tokens": completion_tokens if captured else None,
+        "total_tokens": (prompt_tokens + completion_tokens) if captured else None,
+        "llm_calls": llm_calls if captured else None,
+    }
+
+
+def aggregate_metrics(rows: list[dict[str, Any]], metric_names: list[str] = METRIC_NAMES) -> dict[str, Any]:
+    """Recompute each metric's NaN-aware summary (summarize_metric) across
+    ALL rows -- checkpointed and fresh together -- so n_scored/n_total/mean
+    reflect the full merged set, not just the current process's work."""
+    metrics_out: dict[str, Any] = {}
+    for name in metric_names:
+        values = [r.get(name) for r in rows]
+        metrics_out[name] = summarize_metric(values)
+    return metrics_out
+
+
+def merge_checkpoint_rows(
+    rows: list[dict[str, Any]], metric_names: list[str] = METRIC_NAMES
+) -> dict[str, Any]:
+    """Merge checkpointed + fresh per-ticket rows into the final
+    {"metrics", "usage", "per_ticket"} pieces of the output schema, sorted
+    deterministically by ticket_id."""
+    ordered = sorted(rows, key=lambda r: r["ticket_id"])
+    per_ticket = []
+    for row in ordered:
+        entry = {"ticket_id": row["ticket_id"], "category": row["category"]}
+        for name in metric_names:
+            entry[name] = row.get(name)
+        per_ticket.append(entry)
+    return {
+        "metrics": aggregate_metrics(ordered, metric_names),
+        "usage": aggregate_usage(ordered),
+        "per_ticket": per_ticket,
+    }
+
+
 def _require_env(name: str, value: str | None) -> str:
     if not value:
         raise RuntimeError(
@@ -349,10 +499,19 @@ def run_evaluation(
     metric_names: list[str] = METRIC_NAMES,
     timeout: int = DEFAULT_TIMEOUT,
     max_workers: int = DEFAULT_MAX_WORKERS,
+    checkpoint_path: Path | str,
+    resume: bool = True,
 ) -> dict[str, Any]:
-    """Run the four RAGAS metrics over rows and return the full output dict
-    described in the module's spec (schema_version, provider, config,
-    metrics, usage, per_ticket). Makes real network calls to the LLM."""
+    """Run the four RAGAS metrics over rows, ONE TICKET AT A TIME, and
+    return the full output dict described in the module's spec
+    (schema_version, provider, config, metrics, usage, per_ticket). Makes
+    real network calls to the LLM.
+
+    Per-ticket evaluate() calls (see the checkpointing block comment above
+    for why) mean each ticket's result is durable -- written to
+    checkpoint_path and fsync'd -- before moving on to the next, so a kill
+    mid-run loses at most the ticket in flight instead of the whole batch.
+    """
     from ragas import RunConfig, SingleTurnSample, EvaluationDataset, evaluate
     from ragas.embeddings import LangchainEmbeddingsWrapper
     from ragas.llms import LangchainLLMWrapper
@@ -406,15 +565,6 @@ def run_evaluation(
 
     metrics = [m for _, m in metric_pairs]
 
-    samples = [
-        SingleTurnSample(
-            user_input=row["question"],
-            retrieved_contexts=row["contexts"],
-            response=row["answer"],
-            reference=row["ground_truth"],
-        )
-        for row in rows
-    ]
     # Derive the result-lookup keys from the live metric instances' `.name`
     # attribute rather than hardcoding them -- this is the fix for the bug
     # where "llm_context_recall" was hardcoded but ragas actually reports
@@ -425,7 +575,6 @@ def run_evaluation(
     # built from metric_pairs (see comment above) rather than positional zip.
     metric_name_to_canonical = {m.name: key for key, m in metric_pairs}
 
-    dataset = EvaluationDataset(samples=samples)
     run_config = RunConfig(timeout=timeout, max_workers=max_workers)
 
     # Token/call capture: langchain_community.callbacks.manager's
@@ -449,39 +598,67 @@ def run_evaluation(
     except ImportError:
         token_usage_parser = None
 
-    result = evaluate(
-        dataset,
-        metrics=metrics,
-        llm=llm,
-        embeddings=embeddings,
-        run_config=run_config,
-        token_usage_parser=token_usage_parser,
-        raise_exceptions=False,
+    checkpoint_path = Path(checkpoint_path)
+    if not resume:
+        truncate_checkpoint(checkpoint_path)
+
+    existing_rows = read_checkpoint(checkpoint_path)
+    row_ids = [row["ticket_id"] for row in rows]
+    done_ids = checkpointed_ticket_ids(existing_rows) & set(row_ids)
+    todo_ids = remaining_ticket_ids(row_ids, done_ids)
+    print(
+        f"resume: {len(done_ids)} ticket(s) already checkpointed in {checkpoint_path}, "
+        f"{len(todo_ids)} remaining"
     )
 
-    if result.scores:
-        validate_metric_keys(result.scores[0], list(metric_name_to_canonical))
+    rows_by_id = {row["ticket_id"]: row for row in rows}
 
-    prompt_tokens = completion_tokens = llm_calls = 0
-    captured = False
-    if result.cost_cb is not None and result.cost_cb.usage_data:
-        llm_calls = len(result.cost_cb.usage_data)
-        prompt_tokens = sum(u.input_tokens for u in result.cost_cb.usage_data)
-        completion_tokens = sum(u.output_tokens for u in result.cost_cb.usage_data)
-        captured = (prompt_tokens + completion_tokens) > 0
+    for idx, ticket_id in enumerate(todo_ids, start=1):
+        row = rows_by_id[ticket_id]
+        sample = SingleTurnSample(
+            user_input=row["question"],
+            retrieved_contexts=row["contexts"],
+            response=row["answer"],
+            reference=row["ground_truth"],
+        )
+        dataset = EvaluationDataset(samples=[sample])
 
-    metrics_out: dict[str, Any] = {}
-    for metric_name, canonical in metric_name_to_canonical.items():
-        values = [row_scores.get(metric_name) for row_scores in result.scores]
-        metrics_out[canonical] = summarize_metric(values)
+        result = evaluate(
+            dataset,
+            metrics=metrics,
+            llm=llm,
+            embeddings=embeddings,
+            run_config=run_config,
+            token_usage_parser=token_usage_parser,
+            raise_exceptions=False,
+        )
 
-    per_ticket = []
-    for row, row_scores in zip(rows, result.scores):
-        entry = {"ticket_id": row["ticket_id"], "category": row["category"]}
+        if result.scores:
+            validate_metric_keys(result.scores[0], list(metric_name_to_canonical))
+
+        prompt_tokens = completion_tokens = llm_calls = 0
+        if result.cost_cb is not None and result.cost_cb.usage_data:
+            llm_calls = len(result.cost_cb.usage_data)
+            prompt_tokens = sum(u.input_tokens for u in result.cost_cb.usage_data)
+            completion_tokens = sum(u.output_tokens for u in result.cost_cb.usage_data)
+
+        row_scores = result.scores[0] if result.scores else {}
+        checkpoint_row: dict[str, Any] = {"ticket_id": row["ticket_id"], "category": row["category"]}
         for metric_name, canonical in metric_name_to_canonical.items():
             value = row_scores.get(metric_name)
-            entry[canonical] = None if _is_nan(value) else float(value)
-        per_ticket.append(entry)
+            checkpoint_row[canonical] = None if _is_nan(value) else float(value)
+        checkpoint_row["usage"] = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "llm_calls": llm_calls,
+        }
+
+        append_checkpoint_row(checkpoint_path, checkpoint_row)
+        print(f"[{idx}/{len(todo_ids)}] {ticket_id} done", flush=True)
+
+    all_rows = read_checkpoint(checkpoint_path)
+    merged_rows = [r for r in all_rows if r["ticket_id"] in set(row_ids)]
+    merged = merge_checkpoint_rows(merged_rows, list(metric_names))
 
     return {
         "schema_version": 1,
@@ -496,15 +673,9 @@ def run_evaluation(
             "metrics_selected": list(metric_names),
             "metrics_dropped": dropped_metrics(list(metric_names)),
         },
-        "metrics": metrics_out,
-        "usage": {
-            "captured": captured,
-            "prompt_tokens": prompt_tokens if captured else None,
-            "completion_tokens": completion_tokens if captured else None,
-            "total_tokens": (prompt_tokens + completion_tokens) if captured else None,
-            "llm_calls": llm_calls if captured else None,
-        },
-        "per_ticket": per_ticket,
+        "metrics": merged["metrics"],
+        "usage": merged["usage"],
+        "per_ticket": merged["per_ticket"],
     }
 
 
@@ -532,6 +703,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT_PATH))
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Checkpoint JSONL path (default: eval/results/.ragas_checkpoint_{stem-of-out-file}.jsonl).",
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore and truncate any existing checkpoint instead of resuming from it.",
+    )
     return parser.parse_args(argv)
 
 
@@ -570,9 +752,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"metrics dropped (not selected): {dropped}")
         return 0
 
+    checkpoint_path = Path(args.checkpoint) if args.checkpoint else default_checkpoint_path(args.out)
+
     try:
         output = run_evaluation(
-            rows, metric_names=metric_names, timeout=args.timeout, max_workers=args.max_workers
+            rows,
+            metric_names=metric_names,
+            timeout=args.timeout,
+            max_workers=args.max_workers,
+            checkpoint_path=checkpoint_path,
+            resume=not args.no_resume,
         )
     except Exception as exc:  # noqa: BLE001 - surface any failure unmistakably
         print(f"FAILURE: ragas evaluation raised {type(exc).__name__}: {exc}")
@@ -582,7 +771,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(output, indent=2))
+    out_path.write_text(json.dumps(output, indent=2), encoding="utf-8")
 
     print(f"Evaluated {len(rows)} tickets. Wrote {out_path}")
     print(f"provider: {output['provider']}")

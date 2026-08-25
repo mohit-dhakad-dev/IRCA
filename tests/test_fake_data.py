@@ -11,7 +11,7 @@ REQUIRED_KEYS = {"log_patterns", "log_level", "metric_name", "metric_behavior"}
 
 
 def _all_tickets():
-    return json.loads(TICKETS_PATH.read_text())
+    return json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
 
 
 def test_every_gold_root_cause_has_a_signature():

@@ -64,7 +64,7 @@ def test_fix_within_bounds_passes():
 
 def test_runbook_with_no_numeric_constraints_always_passes(tmp_path):
     path = tmp_path / "RB-CACHE-001.md"
-    path.write_text(SYNTHETIC_NO_NUMBERS)
+    path.write_text(SYNTHETIC_NO_NUMBERS, encoding="utf-8")
 
     result = verify_against_constraints(
         "Increase cache TTL to 999999 seconds and bump pool to 100000 connections",

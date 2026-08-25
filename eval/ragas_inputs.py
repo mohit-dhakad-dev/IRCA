@@ -67,7 +67,7 @@ def load_chunk_index(runbooks_dir: Path | None = None) -> dict[str, dict[str, Ch
 
 
 def load_tickets(tickets_path: Path = TICKETS_PATH) -> dict[str, dict]:
-    tickets = json.loads(tickets_path.read_text())
+    tickets = json.loads(tickets_path.read_text(encoding="utf-8"))
     return {t["id"]: t for t in tickets}
 
 
@@ -125,7 +125,7 @@ def build_ragas_input(
     tickets: dict[str, dict],
     chunk_index: dict[str, dict[str, Chunk]],
 ) -> RagasInput:
-    raw = json.loads((Path(raw_dir) / f"{ticket_id}.json").read_text())
+    raw = json.loads((Path(raw_dir) / f"{ticket_id}.json").read_text(encoding="utf-8"))
     state = raw["state"]
     ticket_meta = raw["ticket"]
 
@@ -183,7 +183,7 @@ def build_all(
 
     rows: list[RagasInput] = []
     for ticket_id in ticket_ids:
-        raw = json.loads((raw_dir / f"{ticket_id}.json").read_text())
+        raw = json.loads((raw_dir / f"{ticket_id}.json").read_text(encoding="utf-8"))
         if raw["state"].get("status") != "resolved":
             continue
         rows.append(
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         all_ids = [t for t in all_ids if t in wanted]
     escalated_count = sum(
         1 for t in all_ids
-        if json.loads((DEFAULT_RAW_DIR / f"{t}.json").read_text())["state"].get("status") != "resolved"
+        if json.loads((DEFAULT_RAW_DIR / f"{t}.json").read_text(encoding="utf-8"))["state"].get("status") != "resolved"
     )
 
     rows = build_all(only=only)
@@ -223,5 +223,5 @@ if __name__ == "__main__":
 
     if args.json:
         out_path = Path(args.json)
-        out_path.write_text(json.dumps([asdict(r) for r in rows], indent=2))
+        out_path.write_text(json.dumps([asdict(r) for r in rows], indent=2), encoding="utf-8")
         print(f"Wrote {len(rows)} rows to {out_path}")

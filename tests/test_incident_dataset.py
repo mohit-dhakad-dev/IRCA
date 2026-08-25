@@ -16,7 +16,7 @@ def _parse_runbook_root_causes():
     roots = set()
     marker = "## Root Cause"
     for path in RUNBOOK_DIR.glob("*.md"):
-        content = path.read_text()
+        content = path.read_text(encoding="utf-8")
         idx = content.find(marker)
         if idx == -1:
             continue
@@ -31,7 +31,7 @@ def _parse_runbook_root_causes():
 def test_incident_dataset_matches_schema():
     assert INCIDENTS_PATH.exists(), "past incidents dataset file is missing"
 
-    incidents = json.loads(INCIDENTS_PATH.read_text())
+    incidents = json.loads(INCIDENTS_PATH.read_text(encoding="utf-8"))
     assert len(incidents) == 8
 
     ids = [inc["incident_id"] for inc in incidents]
@@ -47,7 +47,7 @@ def test_incident_dataset_matches_schema():
 
 
 def test_incident_root_causes_join_against_runbooks():
-    incidents = json.loads(INCIDENTS_PATH.read_text())
+    incidents = json.loads(INCIDENTS_PATH.read_text(encoding="utf-8"))
     runbook_roots = _parse_runbook_root_causes()
 
     assert len(runbook_roots) == 6
@@ -57,7 +57,7 @@ def test_incident_root_causes_join_against_runbooks():
 
 
 def test_incident_root_cause_coverage_and_duplicates():
-    incidents = json.loads(INCIDENTS_PATH.read_text())
+    incidents = json.loads(INCIDENTS_PATH.read_text(encoding="utf-8"))
     runbook_roots = _parse_runbook_root_causes()
 
     counts = Counter(inc["resolved_root_cause"] for inc in incidents)
@@ -69,14 +69,14 @@ def test_incident_root_cause_coverage_and_duplicates():
 
 
 def test_incident_summaries_do_not_leak_root_cause_token():
-    incidents = json.loads(INCIDENTS_PATH.read_text())
+    incidents = json.loads(INCIDENTS_PATH.read_text(encoding="utf-8"))
     for incident in incidents:
         assert incident["resolved_root_cause"] not in incident["symptom_summary"]
 
 
 def test_incident_summaries_are_not_verbatim_tickets():
-    incidents = json.loads(INCIDENTS_PATH.read_text())
-    tickets = json.loads(TICKETS_PATH.read_text())
+    incidents = json.loads(INCIDENTS_PATH.read_text(encoding="utf-8"))
+    tickets = json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
     ticket_texts = {t["ticket_text"] for t in tickets}
 
     for incident in incidents:

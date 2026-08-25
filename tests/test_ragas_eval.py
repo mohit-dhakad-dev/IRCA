@@ -188,6 +188,112 @@ def test_dry_run_call_projection_respects_metric_selection():
     assert set(default_estimate["per_metric_calls"]) == set(ragas_eval.METRIC_NAMES)
 
 
+def test_default_checkpoint_path_derives_from_out_stem():
+    path = ragas_eval.default_checkpoint_path("eval/results/ragas_scores.json")
+    assert path.name == ".ragas_checkpoint_ragas_scores.jsonl"
+    assert path.parent == ragas_eval.REPO_ROOT / "eval" / "results"
+
+
+def _row(ticket_id, **overrides):
+    row = {
+        "ticket_id": ticket_id,
+        "category": "database",
+        "faithfulness": 0.5,
+        "answer_relevancy": 0.6,
+        "llm_context_precision_with_reference": 0.7,
+        "context_recall": 0.8,
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50, "llm_calls": 5},
+    }
+    row.update(overrides)
+    return row
+
+
+def test_checkpoint_round_trip(tmp_path):
+    path = tmp_path / "checkpoint.jsonl"
+    row1 = _row("T001")
+    row2 = _row("T002")
+    ragas_eval.append_checkpoint_row(path, row1)
+    ragas_eval.append_checkpoint_row(path, row2)
+
+    loaded = ragas_eval.read_checkpoint(path)
+    assert loaded == [row1, row2]
+
+
+def test_read_checkpoint_missing_file_returns_empty(tmp_path):
+    assert ragas_eval.read_checkpoint(tmp_path / "does_not_exist.jsonl") == []
+
+
+def test_resume_with_3_of_5_done_returns_other_2_in_order(tmp_path):
+    path = tmp_path / "checkpoint.jsonl"
+    for tid in ["T003", "T001", "T005"]:
+        ragas_eval.append_checkpoint_row(path, _row(tid))
+
+    existing = ragas_eval.read_checkpoint(path)
+    done_ids = ragas_eval.checkpointed_ticket_ids(existing)
+    all_ids = ["T001", "T002", "T003", "T004", "T005"]
+    remaining = ragas_eval.remaining_ticket_ids(all_ids, done_ids)
+    assert remaining == ["T002", "T004"]
+
+
+def test_merge_produces_correct_aggregate_and_nan_accounting():
+    rows = [
+        _row("T001", faithfulness=0.5),
+        _row("T002", faithfulness=float("nan")),
+        _row("T003", faithfulness=0.9),
+    ]
+    merged = ragas_eval.merge_checkpoint_rows(rows, ragas_eval.METRIC_NAMES)
+    faith = merged["metrics"]["faithfulness"]
+    assert faith["n_scored"] == 2
+    assert faith["n_total"] == 3
+    assert math.isclose(faith["mean"], (0.5 + 0.9) / 2)
+    assert merged["usage"]["prompt_tokens"] == 300
+    assert merged["usage"]["completion_tokens"] == 150
+    assert merged["usage"]["llm_calls"] == 15
+    assert [r["ticket_id"] for r in merged["per_ticket"]] == ["T001", "T002", "T003"]
+
+
+def test_malformed_checkpoint_line_raises_naming_ticket_and_path(tmp_path):
+    path = tmp_path / "checkpoint.jsonl"
+    good = _row("T001")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(json.dumps(good) + "\n")
+        bad = dict(good)
+        bad["ticket_id"] = "T002"
+        del bad["usage"]
+        f.write(json.dumps(bad) + "\n")
+
+    try:
+        ragas_eval.read_checkpoint(path)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        msg = str(exc)
+        assert "T002" in msg
+        assert str(path) in msg
+
+
+def test_malformed_checkpoint_invalid_json_raises_naming_line_and_path(tmp_path):
+    path = tmp_path / "checkpoint.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("{not valid json\n")
+
+    try:
+        ragas_eval.read_checkpoint(path)
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        msg = str(exc)
+        assert str(path) in msg
+        assert "line 1" in msg
+
+
+def test_no_resume_truncates_existing_checkpoint(tmp_path):
+    path = tmp_path / "checkpoint.jsonl"
+    ragas_eval.append_checkpoint_row(path, _row("T001"))
+    assert ragas_eval.read_checkpoint(path) != []
+
+    ragas_eval.truncate_checkpoint(path)
+    assert ragas_eval.read_checkpoint(path) == []
+
+
 def test_validate_pairing_raises_on_duplicate_canonical_key():
     pairs = [
         ("faithfulness", "faithfulness"),

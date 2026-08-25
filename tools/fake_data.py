@@ -243,7 +243,7 @@ METRIC_PROFILES: dict[str, dict] = {
 # ---------------------------------------------------------------------------
 @functools.lru_cache(maxsize=1)
 def load_tickets() -> list[dict]:
-    return json.loads(TICKETS_PATH.read_text())
+    return json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
 
 
 def get_ticket(ticket_id: str) -> dict | None:

@@ -104,8 +104,8 @@ def test_compare_skip_accounting(tmp_path):
             {"ticket_id": "T3", "verdict": None},
         ]
     }
-    human_path.write_text(json.dumps(human_data))
-    judge_path.write_text(json.dumps(judge_data))
+    human_path.write_text(json.dumps(human_data), encoding="utf-8")
+    judge_path.write_text(json.dumps(judge_data), encoding="utf-8")
 
     class Args:
         human = str(human_path)
@@ -114,7 +114,7 @@ def test_compare_skip_accounting(tmp_path):
 
     run_compare(Args())
 
-    report = json.loads(out_path.read_text())
+    report = json.loads(out_path.read_text(encoding="utf-8"))
     assert report["n_compared"] == 1
     assert report["n_skipped"] == {
         "human_unlabeled": 1,
@@ -161,9 +161,9 @@ def test_template_blindness(tmp_path):
         {"id": "T1", "ticket_text": "text 1"},
         {"id": "T2", "ticket_text": "text 2"},
     ]
-    gap_set_path.write_text(json.dumps(gap_set))
-    ragas_path.write_text(json.dumps(ragas))
-    tickets_path.write_text(json.dumps(tickets))
+    gap_set_path.write_text(json.dumps(gap_set), encoding="utf-8")
+    ragas_path.write_text(json.dumps(ragas), encoding="utf-8")
+    tickets_path.write_text(json.dumps(tickets), encoding="utf-8")
 
     template = build_template(gap_set_path, ragas_path, tickets_path, n=2)
 
@@ -223,8 +223,8 @@ def test_template_fails_loudly_when_ragas_missing(tmp_path):
     ragas_path = tmp_path / "missing_ragas.json"
     tickets_path = tmp_path / "tickets.json"
 
-    gap_set_path.write_text(json.dumps({"n": 0, "tickets": []}))
-    tickets_path.write_text(json.dumps([]))
+    gap_set_path.write_text(json.dumps({"n": 0, "tickets": []}), encoding="utf-8")
+    tickets_path.write_text(json.dumps([]), encoding="utf-8")
 
     with pytest.raises(FileNotFoundError, match="RAGAS eval"):
         build_template(gap_set_path, ragas_path, tickets_path, n=5)

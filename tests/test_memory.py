@@ -38,7 +38,7 @@ def _search(query: str, chroma_path: Path, top_k: int = 3) -> dict:
 
 
 def _tickets_with_gold() -> list[dict]:
-    tickets = json.loads(TICKETS_PATH.read_text())
+    tickets = json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
     return [t for t in tickets if t.get("gold_root_cause")]
 
 
