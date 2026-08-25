@@ -361,9 +361,66 @@ RAGAS inputs, reconstructed from eval/results/raw/{ticket_id}.json — no re-run
 Metrics: faithfulness, answer_relevancy, context_precision, context_recall (ground_truth-based, 
 available since we have gold_runbook_id per ticket).
 
+### hypothesis_semantic — the rubric and its decomposition
+
+What it measures: whether the agent's free-text hypothesis identifies the same root-cause 
+condition as the ticket's gold_root_cause slug. It exists to resolve the 46-ticket gap where 
+task_success_status_only passed but task_success_strict_lexical failed. Result: 41/46 (89.1%), 
+3 repeats per ticket with majority voting, 0 judge failures.
+
+The rubric (v3), verbatim:
+> A hypothesis is semantically correct when it identifies a technical root-cause condition that 
+> is (a) consistent with the gold root cause's causal chain, and (b) supported by evidence the 
+> agent actually observed during its run (tool outputs, not just asserted) — even if that 
+> evidence doesn't establish a deeper upstream reason the condition occurred. Naming a 
+> different, non-overlapping mechanism than gold (e.g., "connection limits" when gold is "queue 
+> exhaustion") is still incorrect. Naming a more specific instance of the gold mechanism is 
+> correct.
+
+Clause (a) is governed by a clarification: naming the technical condition counts even when the 
+gold slug names a deeper mechanism — "the disk is full" DOES count for gold 
+disk_log_rotation_gap.
+
+Why it is a conjunction, and why decomposed: the rubric is two clauses, so the judge emits 
+semantic_match and evidence_supported separately and the caller computes the AND — the model is 
+never asked for the conjunction itself. Without that split the verdict is opaque: you cannot 
+tell whether a ticket failed because the agent named the wrong mechanism or because it named the 
+right one without support. The decomposition of the 5 failures is semantic-only 1, evidence-only 
+3, both 1.
+
+Rubric versioning matters, with evidence. Three runs over the identical 46 tickets, differing 
+only in rubric: unspecified rubric from the codespace run 38/46 (82.6%), unspecified rubric 
+locally 39/46 (84.8%), written-down v3 41/46 (89.1%). A 6.5-point spread caused purely by whether 
+the criterion was stated. Rubric v1 also produced human/judge Cohen's kappa of 0.066 — chance 
+level — because the human rater and the judge were answering different questions (evidence 
+grounding vs semantic match); v3 states one shared criterion for both raters and reaches kappa 
+0.500 / 84.0% raw agreement. Artifacts: eval/results/hypothesis_semantic_v3.json, 
+eval/results/judge_agreement_report.json, with the superseded runs preserved as 
+hypothesis_semantic.v1.json and hypothesis_semantic.codespace-v1.json.
+
+Validation caveat: the 25-ticket human-agreement sample deliberately oversamples judge 
+disagreement, so kappa 0.500 describes calibration on hard cases and must NOT be used to correct 
+the 89.1% headline rate.
+
 Custom (non-RAGAS) LLM-judge metrics, separate module:
 - plan_quality: 1-5 scale, critic-of-the-planner comparing executed plan vs a reference plan 
   I write for a stratified sample (not all 63 — too expensive/slow to reference-write for all)
+
+plan_quality (superseded): never built. state.plan is empty in all 63 raw run records, and only 
+56 of 297 trajectory steps carry a non-empty thought — there is no recorded executed plan to 
+compare against a reference, so the metric as specified has no input to score. That's an 
+observability gap in the orchestrator, not a scoring problem. Its intended purpose — checking 
+whether the agent's process held up, not just its conclusion — is now measured by 
+evidence_supported, the second clause of the decomposed hypothesis_semantic verdict under rubric 
+v3, which asks whether the hypothesis is supported by evidence the agent actually observed in its 
+tool outputs, rather than merely asserted. This turned out to be the more diagnostic question: of 
+the 5 remaining hypothesis_semantic failures, 3 are evidence-only — the agent named the right 
+root-cause condition without having observed support for it, a failure mode invisible to a 
+plan-vs-reference comparison, which would score the shape of the plan rather than whether its 
+conclusion was earned. Treat plan_quality as superseded by evidence_supported, not as deferred 
+work. The orchestrator's empty state.plan remains worth fixing on its own merits as an 
+observability issue, but it no longer blocks a metric.
+
 - final_answer_correctness: semantic match of proposed_fix vs gold_root_cause's known-good fix
 
 Human-agreement check: I hand-label faithfulness + plan_quality on 15-20 tickets myself 
@@ -564,6 +621,8 @@ pending a decision.
 Judge-metric variance: a third member of the same variance class as task-outcome variance (T001, recorded elsewhere — see Step 9 and PROGRESS.md, above) and retrieval-score variance (T049, above). Faithfulness, and likely the other RAGAS LLM-judge metrics, shows real run-to-run variance even at temperature 0. Observed directly across two identical subset-3 runs: aggregate faithfulness moved 0.944 → 0.867, with T001 at 0.833 → 0.800 and T003 at 1.000 → 0.800. Single-sweep RAGAS numbers in the final report must be presented as approximate single-sample figures, not precise point estimates — the same caveat class as task-outcome and retrieval-score variance.
 
 Threat model: the attacker is anyone who can influence ticket text, log content, or (if you extend the corpus) runbook content — i.e., indirect prompt injection via data the agent is supposed to read. The defense is architectural (tool-output ≠ instruction, permission tiers enforced outside the LLM) rather than purely prompt-based, because prompt-only defenses are known to be unreliable.
+
+plan_quality's supersession by evidence_supported (see LLM-Judge Metrics section, above) is a second instance of this same theme: a measurement's stated design can be wrong about what is worth measuring, and the substituted metric was found by following the evidence rather than by executing the original plan.
 
 
 Production Path
