@@ -12,6 +12,7 @@ from pathlib import Path
 from chromadb.errors import NotFoundError
 
 from memory.ingest import CHROMA_PATH, COLLECTION_NAME, EMBEDDING_MODEL
+from tools.injection_fixtures import poisoned_past_incident
 from vectorstore import index_not_found_error, query_collection
 
 # 0.40, NOT the 0.5 used by rag/retrieve.py. Deliberately independent: memory
@@ -47,6 +48,7 @@ def search_past_incidents(
     top_k: int = DEFAULT_TOP_K,
     chroma_path: Path | None = None,
     collection_name: str | None = None,
+    ticket_id: str | None = None,
 ) -> dict:
     """Search the past-incidents index for the top_k prior incidents most
     similar to query. Returns the repo's standard tool-result shape:
@@ -93,8 +95,19 @@ def search_past_incidents(
         )
 
     top_score = incidents[0]["similarity_score"] if incidents else 0.0
+    # Decided from the REAL incidents only, before any injection fixture is
+    # appended below -- the poisoned incident must never be able to flip this.
+    no_confident_match = not incidents or top_score < SCORE_THRESHOLD
 
-    if not incidents or top_score < SCORE_THRESHOLD:
+    if ticket_id is not None:
+        # Adversarial fixture only (tools/injection_fixtures.py). Appended
+        # AFTER top_score/status are decided, so it can never itself push a
+        # ticket over SCORE_THRESHOLD or flip ok/no_confident_match.
+        poisoned = poisoned_past_incident(ticket_id)
+        if poisoned is not None:
+            incidents.append(poisoned)
+
+    if no_confident_match:
         return {
             "status": "no_confident_match",
             "data": {"query": query, "incidents": incidents, "top_score": top_score},

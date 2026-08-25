@@ -9,7 +9,13 @@ chroma_db/
 # regenerable -- ignore them, but report.md/report.json (written by Part B)
 # are the committed history of eval results over the project's life, so
 # explicitly un-ignore those two even though they live under eval/results/.
+# eval/results/adversarial/*.json is the same class of artifact: raw
+# per-ticket adversarial sweep output, regenerable by re-running the
+# adversarial sweep. Its verdict and undelivered evidence are already
+# preserved in the committed report.json/report.md, so the raw per-ticket
+# files themselves don't need to be tracked either.
 eval/results/raw/*.json
+eval/results/adversarial/*.json
 eval/results/runs/
 !eval/results/report.md
 !eval/results/report.json

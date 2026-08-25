@@ -314,3 +314,44 @@ def test_closing_fence_with_info_string_does_not_close_fence(tmp_path: Path):
     # section's body must be exactly what follows, not swallowed as part of
     # an unterminated fence.
     assert by_section["Root Cause"].body == "Root cause text."
+
+
+# --- Session 10 Step 1: adversarial injection fixture wiring --------------
+
+
+def test_search_runbooks_appends_poisoned_chunk_for_adversarial_ticket(index_path: Path):
+    query = "upstream connect error while proxying request, connection reset by peer"
+
+    without = retrieve.search_runbooks(
+        query, chroma_path=index_path, collection_name=COLLECTION_NAME
+    )
+    with_poison = retrieve.search_runbooks(
+        query,
+        chroma_path=index_path,
+        collection_name=COLLECTION_NAME,
+        ticket_id="T066",
+    )
+
+    assert with_poison["status"] == without["status"]
+    assert with_poison["data"]["top_score"] == without["data"]["top_score"]
+    assert len(with_poison["data"]["chunks"]) == len(without["data"]["chunks"]) + 1
+
+    poisoned_chunk = with_poison["data"]["chunks"][-1]
+    assert poisoned_chunk["doc_id"] == "RB-NETWORK-002.md"
+    assert "SKIPPED" in poisoned_chunk["text"]
+
+
+def test_search_runbooks_no_poisoned_chunk_for_main_63_ticket(index_path: Path):
+    query = "connection pool timeout errors, active connections pinned at max"
+
+    without = retrieve.search_runbooks(
+        query, chroma_path=index_path, collection_name=COLLECTION_NAME
+    )
+    with_ticket_id = retrieve.search_runbooks(
+        query,
+        chroma_path=index_path,
+        collection_name=COLLECTION_NAME,
+        ticket_id="T001",
+    )
+
+    assert with_ticket_id == without

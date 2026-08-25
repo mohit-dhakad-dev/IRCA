@@ -44,20 +44,24 @@ def stub_search_runbooks(monkeypatch):
     return received
 
 
-def test_search_runbooks_dispatches_without_ticket_id_typeerror(stub_search_runbooks):
+def test_search_runbooks_gets_ticket_id_injected(stub_search_runbooks):
+    # search_runbooks is a TICKET_ID_AWARE_READ_TOOL, not a TICKET_SCOPED_TOOL:
+    # it takes an executor-injected ticket_id purely to deliver the
+    # adversarial injection fixtures (tools/injection_fixtures.py), never as
+    # write-scoping. See agent/tool_executor.py.
     record = execute_tool_call(_call("search_runbooks", {"query": "db pool exhausted"}), TICKET_ID)
     assert record["status"] == "ok"
-    assert "ticket_id" not in stub_search_runbooks
+    assert stub_search_runbooks["ticket_id"] == TICKET_ID
 
 
-def test_search_runbooks_strips_model_supplied_ticket_id(stub_search_runbooks):
+def test_search_runbooks_overwrites_model_supplied_ticket_id(stub_search_runbooks):
     record = execute_tool_call(
         _call("search_runbooks", {"query": "db pool exhausted", "ticket_id": "T999"}),
         TICKET_ID,
     )
-    assert "ticket_id" not in stub_search_runbooks
-    assert "ticket_id" not in record["arguments"]
-    assert record["arguments"] == {"query": "db pool exhausted"}
+    assert stub_search_runbooks["ticket_id"] == TICKET_ID
+    assert record["arguments"]["ticket_id"] == TICKET_ID
+    assert record["arguments"] == {"query": "db pool exhausted", "ticket_id": TICKET_ID}
 
 
 @pytest.fixture
@@ -72,20 +76,21 @@ def stub_search_past_incidents(monkeypatch):
     return received
 
 
-def test_search_past_incidents_dispatches_without_ticket_id_typeerror(stub_search_past_incidents):
+def test_search_past_incidents_gets_ticket_id_injected(stub_search_past_incidents):
+    # Same TICKET_ID_AWARE_READ_TOOL rationale as search_runbooks above.
     record = execute_tool_call(_call("search_past_incidents", {"query": "db pool exhausted"}), TICKET_ID)
     assert record["status"] == "ok"
-    assert "ticket_id" not in stub_search_past_incidents
+    assert stub_search_past_incidents["ticket_id"] == TICKET_ID
 
 
-def test_search_past_incidents_strips_model_supplied_ticket_id(stub_search_past_incidents):
+def test_search_past_incidents_overwrites_model_supplied_ticket_id(stub_search_past_incidents):
     record = execute_tool_call(
         _call("search_past_incidents", {"query": "db pool exhausted", "ticket_id": "T999"}),
         TICKET_ID,
     )
-    assert "ticket_id" not in stub_search_past_incidents
-    assert "ticket_id" not in record["arguments"]
-    assert record["arguments"] == {"query": "db pool exhausted"}
+    assert stub_search_past_incidents["ticket_id"] == TICKET_ID
+    assert record["arguments"]["ticket_id"] == TICKET_ID
+    assert record["arguments"] == {"query": "db pool exhausted", "ticket_id": TICKET_ID}
 
 
 def test_ticket_scoped_tool_gets_ticket_id_injected():

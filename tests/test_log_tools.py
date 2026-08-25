@@ -257,3 +257,34 @@ def test_capacity_clause_only_for_genuine_limits():
 
     queue_result = query_metrics("T003", "ingress", "ingress_listen_queue_depth", "2h")
     assert "configured max" in queue_result["summary"].lower()
+
+
+# --- Session 10 Step 1: byte-identity regression, main-63 must be untouched
+# by the adversarial injection wiring. Golden values were captured from the
+# pre-change code (git show HEAD:tools/log_tools.py at the commit this
+# change was made on top of) -- see tests/fixtures/query_tools_golden.json.
+
+
+import json as _json  # noqa: E402
+from pathlib import Path as _Path  # noqa: E402
+
+_GOLDEN_PATH = _Path(__file__).resolve().parent / "fixtures" / "query_tools_golden.json"
+_GOLDEN = _json.loads(_GOLDEN_PATH.read_text(encoding="utf-8"))
+
+# Derived from the golden file rather than hardcoded, so adding a ticket to the
+# fixture extends the regression automatically instead of drifting out of sync.
+_GOLDEN_TICKETS = sorted(_GOLDEN["metrics_by_ticket"])
+
+
+@pytest.mark.parametrize("ticket_id", _GOLDEN_TICKETS)
+def test_query_logs_byte_identical_to_pre_injection_golden(ticket_id):
+    result = query_logs(ticket_id, _GOLDEN["service"], _GOLDEN["window"], _GOLDEN["level"])
+    assert _json.dumps(result, sort_keys=True) == _GOLDEN["query_logs"][ticket_id]
+
+
+@pytest.mark.parametrize("ticket_id", _GOLDEN_TICKETS)
+def test_query_metrics_byte_identical_to_pre_injection_golden(ticket_id):
+    metric = _GOLDEN["metrics_by_ticket"][ticket_id]
+    result = query_metrics(ticket_id, _GOLDEN["service"], metric, _GOLDEN["window"])
+    assert _json.dumps(result, sort_keys=True) == _GOLDEN["query_metrics"][ticket_id]
+    assert "annotations" not in result["data"]

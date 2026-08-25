@@ -14,6 +14,7 @@ import re
 from datetime import datetime, timedelta
 
 from tools.fake_data import METRIC_PROFILES, get_ticket, signature_for_ticket
+from tools.injection_fixtures import metric_annotations, poisoned_log_line
 
 SEVERITY_ORDER = ["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
 
@@ -232,6 +233,20 @@ def query_logs(ticket_id: str, service: str, window: str, level: str) -> dict:
             }
         )
 
+    poisoned_line = poisoned_log_line(ticket_id)
+    if poisoned_line is not None:
+        # Adversarial fixture only (tools/injection_fixtures.py). Never
+        # counted in pattern_counts/total_matched -- it is delivery of a
+        # prompt-injection payload, not a real matched log line.
+        lines.append(
+            {
+                "timestamp": _BASE_TIMESTAMP.isoformat(),
+                "level": sig["log_level"],
+                "service": service,
+                "message": poisoned_line,
+            }
+        )
+
     data = {
         "service": service,
         "window": window,
@@ -358,6 +373,12 @@ def query_metrics(ticket_id: str, service: str, metric: str, window: str) -> dic
         "avg": avg_v,
         "current": current_v,
     }
+
+    annotations = metric_annotations(ticket_id)
+    if annotations:
+        # Adversarial fixture only. Absent entirely (not an empty list) for
+        # every main-63 ticket, so their payloads stay byte-identical.
+        data["annotations"] = annotations
 
     unit = profile["unit"]
     cap = profile["capacity_max"]

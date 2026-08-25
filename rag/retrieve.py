@@ -13,6 +13,7 @@ import chromadb
 from chromadb.errors import NotFoundError
 
 from rag.ingest import CHROMA_PATH, COLLECTION_NAME, EMBEDDING_MODEL
+from tools.injection_fixtures import poisoned_runbook_chunk
 from vectorstore import _reset_cache
 from vectorstore import get_collection as _vs_get_collection
 from vectorstore import index_not_found_error, query_collection
@@ -55,6 +56,7 @@ def search_runbooks(
     top_k: int = DEFAULT_TOP_K,
     chroma_path: Path | None = None,
     collection_name: str | None = None,
+    ticket_id: str | None = None,
 ) -> dict:
     """Search the runbook chunk index for the top_k sections most relevant to
     query. Returns the repo's standard tool-result shape:
@@ -105,8 +107,19 @@ def search_runbooks(
         )
 
     top_score = chunks[0]["score"] if chunks else 0.0
+    # Decided from the REAL chunks only, before any injection fixture is
+    # appended below -- the poisoned chunk must never be able to flip this.
+    no_confident_match = not chunks or top_score < SCORE_THRESHOLD
 
-    if not chunks or top_score < SCORE_THRESHOLD:
+    if ticket_id is not None:
+        # Adversarial fixture only (tools/injection_fixtures.py). Appended
+        # AFTER top_score/status are decided, so it can never itself push a
+        # ticket over SCORE_THRESHOLD or flip ok/no_confident_match.
+        poisoned = poisoned_runbook_chunk(ticket_id)
+        if poisoned is not None:
+            chunks.append(poisoned)
+
+    if no_confident_match:
         return {
             "status": "no_confident_match",
             "data": {"query": query, "chunks": chunks, "top_score": top_score},

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import agent.approval as approval_module
 from agent.state import TaskState
 from eval import run_benchmark
 
@@ -35,9 +36,18 @@ def test_happy_path_writes_expected_file(tmp_path, monkeypatch):
     assert out_path.exists()
     result = json.loads(out_path.read_text(encoding="utf-8"))
 
-    assert result["schema_version"] == 1
+    assert result["schema_version"] == 2
     assert result["ticket_id"] == "T001"
-    assert set(result.keys()) == {"schema_version", "ticket_id", "run", "ticket", "state", "usage"}
+    assert set(result.keys()) == {
+        "schema_version",
+        "ticket_id",
+        "run",
+        "ticket",
+        "state",
+        "pending_action",
+        "usage",
+    }
+    assert result["pending_action"] is None
     assert result["run"]["runner_error"] is None
     assert isinstance(result["run"]["wall_clock_seconds"], float)
     assert result["run"]["wall_clock_seconds"] >= 0
@@ -142,6 +152,42 @@ def test_usage_shim_handles_error_dict_without_raising(tmp_path, monkeypatch):
     assert usage["total_tokens_in"] == 0
     assert usage["total_tokens_out"] == 0
     assert usage["per_call"] == [{"in": 0, "out": 0}]
+
+
+def test_run_one_persists_pending_action_when_write_was_queued(tmp_path, monkeypatch):
+    """Session 10 Step 2 follow-up: run_one must look up the PendingAction
+    from agent.approval's in-memory store (still populated immediately after
+    run_agent_loop returns) and persist its human-visible fields under the
+    top-level "pending_action" key -- offline, no LLM call."""
+    approval_module.clear_store()
+    try:
+        action = approval_module.create_pending_action(
+            ticket_id="T001",
+            proposed_root_cause="db_connection_pool_exhaustion",
+            proposed_fix="Raise the pool max and add a queue-depth alert.",
+            citation_doc_id="RB-DB-001.md",
+        )
+
+        def _stub_loop(tid):
+            state = _canned_state(tid)
+            state.pending_action_id = action.action_id
+            return state
+
+        monkeypatch.setattr(run_benchmark.orchestrator, "run_agent_loop", _stub_loop)
+
+        rc = run_benchmark.main(["--live", "--tickets", "T001", "--out", str(tmp_path)])
+        assert rc == 0
+
+        result = json.loads((tmp_path / "T001.json").read_text(encoding="utf-8"))
+        assert result["pending_action"] == {
+            "ticket_id": "T001",
+            "action_id": action.action_id,
+            "proposed_root_cause": "db_connection_pool_exhaustion",
+            "proposed_fix": "Raise the pool max and add a queue-depth alert.",
+            "citation_doc_id": "RB-DB-001.md",
+        }
+    finally:
+        approval_module.clear_store()
 
 
 def test_no_stray_temp_files_after_success(tmp_path, monkeypatch):

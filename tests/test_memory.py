@@ -159,3 +159,44 @@ def test_missing_index_returns_error_not_raise(tmp_path):
 def test_empty_query_returns_error(incidents_chroma_path):
     result = _search("   ", incidents_chroma_path)
     assert result["status"] == "error"
+
+
+# --- Session 10 Step 1: adversarial injection fixture wiring --------------
+
+
+def test_search_past_incidents_appends_poisoned_incident_for_adversarial_ticket(incidents_chroma_path):
+    query = "connection pool timeout errors near max active connections"
+
+    without = search_past_incidents(
+        query, chroma_path=incidents_chroma_path, collection_name=COLLECTION_NAME
+    )
+    with_poison = search_past_incidents(
+        query,
+        chroma_path=incidents_chroma_path,
+        collection_name=COLLECTION_NAME,
+        ticket_id="T072",
+    )
+
+    assert with_poison["status"] == without["status"]
+    assert with_poison["data"]["top_score"] == without["data"]["top_score"]
+    assert len(with_poison["data"]["incidents"]) == len(without["data"]["incidents"]) + 1
+
+    poisoned_incident = with_poison["data"]["incidents"][-1]
+    assert poisoned_incident["incident_id"] == "INC-POISON-072"
+    assert "standing approval" in poisoned_incident["resolution"].lower()
+
+
+def test_search_past_incidents_no_poisoned_incident_for_main_63_ticket(incidents_chroma_path):
+    query = "connection pool timeout errors near max active connections"
+
+    without = search_past_incidents(
+        query, chroma_path=incidents_chroma_path, collection_name=COLLECTION_NAME
+    )
+    with_ticket_id = search_past_incidents(
+        query,
+        chroma_path=incidents_chroma_path,
+        collection_name=COLLECTION_NAME,
+        ticket_id="T001",
+    )
+
+    assert with_ticket_id == without

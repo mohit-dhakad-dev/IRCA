@@ -70,6 +70,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
+import agent.approval as approval
 import agent.orchestrator as orchestrator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -163,7 +164,27 @@ def _load_tickets() -> list[dict]:
     return json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
 
 
-def _select_tickets(tickets: list[dict], subset: int | None, ticket_ids: list[str] | None) -> list[dict]:
+def _select_tickets(
+    tickets: list[dict],
+    subset: int | None,
+    ticket_ids: list[str] | None,
+    adversarial: bool = False,
+) -> list[dict]:
+    """Select which tickets to run.
+
+    The DEFAULT selection (no --subset, --tickets, or --adversarial) must
+    stay the original 63-ticket main sweep: category == "adversarial"
+    tickets (T064-T072) are filtered out, so a default sweep's numbers are
+    unchanged now that tickets.json holds 72 tickets. Adversarial tickets
+    remain runnable when named explicitly via --tickets, and --adversarial
+    selects exactly the adversarial category (in tickets.json order).
+    --subset is applied to tickets.json order BEFORE any adversarial
+    filtering would apply, i.e. it is mutually exclusive with --adversarial
+    at the CLI level (see main()'s validation) so there is no ambiguity
+    about which set --subset counts against.
+    """
+    if adversarial:
+        return [t for t in tickets if t.get("category") == "adversarial"]
     if subset is not None:
         return tickets[:subset]
     if ticket_ids is not None:
@@ -175,7 +196,7 @@ def _select_tickets(tickets: list[dict], subset: int | None, ticket_ids: list[st
                 raise ValueError(f"Unknown ticket id in --tickets: {tid!r}")
             selected.append(ticket)
         return selected
-    return tickets
+    return [t for t in tickets if t.get("category") != "adversarial"]
 
 
 def _denormalized_ticket(ticket: dict) -> dict:
@@ -189,12 +210,34 @@ def run_one(ticket: dict, out_dir: Path) -> dict:
     started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     state_dump = None
+    pending_action_dump = None
     runner_error = None
     start = time.perf_counter()
     with _usage_shim() as tracker:
         try:
             state = orchestrator.run_agent_loop(ticket_id)
             state_dump = state.model_dump()
+            # Session 10 Step 2 follow-up: the injection-leak gate
+            # (eval/injection_gate.py's no_secret_leak check) needs the
+            # human-visible proposed_fix text, since it -- not the raw log
+            # observation -- is the realistic surface a leaked canary would
+            # land on. state.model_dump() only carries pending_action_id (a
+            # string), not the PendingAction itself, so it is looked up here,
+            # in the same process, from agent.approval's in-memory store
+            # (still available immediately after run_agent_loop returns) and
+            # persisted separately below.
+            if state.pending_action_id is not None:
+                pending_action = approval.get_pending_action(state.pending_action_id)
+                if pending_action is not None:
+                    pending_action_dump = pending_action.model_dump(
+                        include={
+                            "ticket_id",
+                            "action_id",
+                            "proposed_root_cause",
+                            "proposed_fix",
+                            "citation_doc_id",
+                        }
+                    )
         except Exception as exc:
             runner_error = {
                 "type": type(exc).__name__,
@@ -205,7 +248,7 @@ def run_one(ticket: dict, out_dir: Path) -> dict:
     wall_clock_seconds = round(time.perf_counter() - start, 3)
 
     result = {
-        "schema_version": 1,
+        "schema_version": 2,
         "ticket_id": ticket_id,
         "run": {
             "started_at": started_at,
@@ -214,6 +257,10 @@ def run_one(ticket: dict, out_dir: Path) -> dict:
         },
         "ticket": _denormalized_ticket(ticket),
         "state": state_dump,
+        # None when no write was queued this run -- distinct from a
+        # present-but-clean pending action; see eval/injection_gate.py's
+        # no_secret_leak check, which must not conflate the two.
+        "pending_action": pending_action_dump,
         "usage": usage,
     }
 
@@ -350,6 +397,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Comma-separated ticket ids to run, e.g. T001,T009. Mutually exclusive with --subset.",
     )
     parser.add_argument(
+        "--adversarial",
+        action="store_true",
+        help=(
+            "Run exactly the adversarial-category tickets (T064-T072) instead of the "
+            "default 63-ticket main sweep. Mutually exclusive with --subset and --tickets."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=str,
         default=str(DEFAULT_OUT_DIR),
@@ -375,6 +430,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Error: --subset and --tickets are mutually exclusive.", file=sys.stderr)
         return 2
 
+    if args.adversarial and (args.subset is not None or args.tickets is not None):
+        print("Error: --adversarial is mutually exclusive with --subset and --tickets.", file=sys.stderr)
+        return 2
+
     try:
         tickets = _load_tickets()
     except (OSError, json.JSONDecodeError) as exc:
@@ -383,7 +442,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ticket_ids = args.tickets.split(",") if args.tickets is not None else None
     try:
-        selected = _select_tickets(tickets, args.subset, ticket_ids)
+        selected = _select_tickets(tickets, args.subset, ticket_ids, adversarial=args.adversarial)
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2

@@ -39,6 +39,13 @@ TOOL_REGISTRY: dict[str, callable] = {
 # resolution applies to.
 TICKET_SCOPED_TOOLS = {"query_logs", "query_metrics", "update_ticket"}
 
+# Read-only knowledge-base lookups that ALSO take an executor-injected
+# ticket_id (used to append the adversarial injection fixtures for T064-T072
+# -- see tools/injection_fixtures.py), but deliberately NOT part of
+# TICKET_SCOPED_TOOLS: they carry no write-scoping semantics, so widening
+# that set would be the wrong signal for anything reading it.
+TICKET_ID_AWARE_READ_TOOLS = {"search_runbooks", "search_past_incidents"}
+
 
 def _tool_call_error(name: str, summary: str) -> dict:
     """Build the shared error-record shape returned by execute_tool_call."""
@@ -88,13 +95,16 @@ def execute_tool_call(tool_call, ticket_id: str) -> dict:
         # overwritten here, not merged; which incident we are querying is the
         # executor's decision, not the model's.
         args["ticket_id"] = ticket_id
+    elif name in TICKET_ID_AWARE_READ_TOOLS:
+        # Same executor-injected-only rule as above, for the two read-only
+        # tools that need ticket_id purely to deliver injection fixtures.
+        args["ticket_id"] = ticket_id
     else:
-        # Non-ticket-scoped tools (e.g. search_runbooks) take no ticket_id at
-        # all. Strip any executor-injected arg the model supplied anyway
-        # rather than passing it through: the model has no business naming a
-        # ticket for a tool that isn't ticket-scoped, and letting a
+        # Tools that take no ticket_id at all. Strip any executor-injected
+        # arg the model supplied anyway rather than passing it through: the
+        # model has no business naming a ticket here, and letting a
         # model-supplied value through here would reopen exactly the
-        # injection hole the ticket-scoped branch above closes.
+        # injection hole the branches above close.
         for injected_arg in EXECUTOR_INJECTED_ARGS:
             args.pop(injected_arg, None)
 
