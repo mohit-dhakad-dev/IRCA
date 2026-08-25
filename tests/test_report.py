@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 
 import eval.report as report_mod
 
@@ -267,7 +269,7 @@ def test_safety_skip_not_folded_into_denominator(monkeypatch):
         "task_success": {
             "task_success_status_only": {"n_success": 0, "n_total": 0, "rate": None},
             "task_success_strict_lexical": {"n_success": 0, "n_total": 0, "rate": None},
-            "hypothesis_semantic": "PENDING (Session 9b)",
+            "hypothesis_semantic": {"status": "NOT COMPUTED", "reason": "hypothesis_semantic_v3.json not found"},
             "gap_explanation": "n/a",
         },
         "category_breakdown": {
@@ -335,3 +337,273 @@ def test_rate_card_baseten_confirmed():
     assert card.output_per_mtok == 0.60
     assert "baseten" in label.lower()
     assert "2026-08-23" in label
+
+
+# --------------------------------------------------------------------------
+# Session 9b: hypothesis_semantic / judge validation / RAGAS diagnostic
+# --------------------------------------------------------------------------
+
+
+def _write_json(path, name, data):
+    (path / name).write_text(json.dumps(data), encoding="utf-8")
+
+
+def _hypothesis_semantic_v3_fixture():
+    return {
+        "schema_version": 1,
+        "provider": "test",
+        "config": {"rubric_version": 3, "repeats": 3, "rubric_text": "shared criterion"},
+        "summary": {
+            "n_judged": 46,
+            "n_correct": 41,
+            "n_incorrect": 5,
+            "n_failed": 0,
+            "semantic_correct_rate": 41 / 46,
+            "n_fail_semantic_only": 1,
+            "n_fail_evidence_only": 3,
+            "n_fail_both": 1,
+        },
+        "per_ticket": (
+            [{"ticket_id": f"T{i:03d}", "verdict": True, "agreement": 1.0} for i in range(1, 42)]
+            + [{"ticket_id": f"T{i:03d}", "verdict": False, "agreement": 0.667} for i in range(42, 47)]
+        ),
+    }
+
+
+def _judge_agreement_fixture(kappa=0.5, raw_agreement=84.0, pabak=0.68, prevalence=0.8):
+    return {
+        "n_compared": 25,
+        "n_skipped": {"human_unlabeled": 0, "judge_failed": 0, "not_in_both": 21},
+        "contingency": {"both_true": 18, "both_false": 3, "human_true_judge_false": 2, "human_false_judge_true": 2},
+        "raw_agreement": raw_agreement,
+        "kappa": kappa,
+        "pabak": pabak,
+        "prevalence": prevalence,
+        "kappa_note": "kappa=0.500, PABAK=0.680, prevalence=0.800.",
+        "per_ticket": [],
+    }
+
+
+def test_compute_hypothesis_semantic_from_fixture(tmp_path):
+    _write_json(tmp_path, "hypothesis_semantic_v3.json", _hypothesis_semantic_v3_fixture())
+
+    result = report_mod.compute_hypothesis_semantic(tmp_path)
+
+    assert result["n_correct"] == 41
+    assert result["n_judged"] == 46
+    assert result["n_failed"] == 0
+    assert abs(result["rate"] - 41 / 46) < 1e-9
+    assert result["rubric_version"] == 3
+    assert result["repeats"] == 3
+    assert result["failure_decomposition"] == {"semantic_only": 1, "evidence_only": 3, "both": 1}
+    assert result["judge_stability"]["n_unanimous"] == 41
+    assert result["judge_stability"]["n_split"] == 5
+
+
+def test_compute_hypothesis_semantic_missing_file_not_computed(tmp_path):
+    result = report_mod.compute_hypothesis_semantic(tmp_path)
+    assert result["status"] == "NOT COMPUTED"
+    assert "hypothesis_semantic_v3.json" in result["reason"]
+
+
+def test_compute_hypothesis_semantic_malformed_file_raises(tmp_path):
+    (tmp_path / "hypothesis_semantic_v3.json").write_text("{not valid json", encoding="utf-8")
+    import pytest
+
+    with pytest.raises(json.JSONDecodeError):
+        report_mod.compute_hypothesis_semantic(tmp_path)
+
+
+def test_task_success_status_only_and_strict_lexical_unchanged(tmp_path, monkeypatch):
+    raw_dir, out_dir, tickets_by_id = _setup(tmp_path, monkeypatch)
+    safety = report_mod.run_safety_gate()
+    report = report_mod.build_report(raw_dir, tickets_by_id, safety=safety, results_dir=tmp_path)
+
+    ts = report["task_success"]
+    assert set(ts.keys()) == {
+        "task_success_status_only",
+        "task_success_strict_lexical",
+        "hypothesis_semantic",
+        "gap_explanation",
+    }
+    a = ts["task_success_status_only"]
+    b = ts["task_success_strict_lexical"]
+    assert a["n_success"] == 2
+    assert a["n_total"] == 4
+    assert b["n_success"] == 1
+    assert b["n_total"] == 4
+    # hypothesis_semantic is a computed dict/NOT-COMPUTED marker, never a bare string.
+    assert ts["hypothesis_semantic"] != "PENDING (Session 9b)"
+    assert isinstance(ts["hypothesis_semantic"], dict)
+
+
+def test_missing_ragas_and_judge_files_render_not_computed(tmp_path, monkeypatch):
+    raw_dir, out_dir, tickets_by_id = _setup(tmp_path, monkeypatch)
+    safety = report_mod.run_safety_gate()
+    empty_results_dir = tmp_path / "empty_results"
+    empty_results_dir.mkdir()
+
+    report = report_mod.build_report(raw_dir, tickets_by_id, safety=safety, results_dir=empty_results_dir)
+    md = report_mod.render_markdown(report)
+
+    assert "NOT COMPUTED" in md
+    assert report["task_success"]["hypothesis_semantic"]["status"] == "NOT COMPUTED"
+    assert report["judge_validation"]["status"] == "NOT COMPUTED"
+
+
+def test_full_session_9b_fixture_renders_headline_and_ragas_sections(tmp_path, monkeypatch):
+    raw_dir, out_dir, tickets_by_id = _setup(tmp_path, monkeypatch)
+    safety = report_mod.run_safety_gate()
+
+    results_dir = tmp_path / "results"
+    results_dir.mkdir()
+    _write_json(results_dir, "hypothesis_semantic_v3.json", _hypothesis_semantic_v3_fixture())
+    _write_json(results_dir, "judge_agreement_report.json", _judge_agreement_fixture())
+    _write_json(
+        results_dir,
+        "hypothesis_semantic.v1.json",
+        {
+            "schema_version": 1,
+            "provider": "test",
+            "config": {"rubric_version": 1, "repeats": 3},
+            "summary": {"n_judged": 46, "n_correct": 39, "n_incorrect": 7, "n_failed": 0, "semantic_correct_rate": 39 / 46},
+            "per_ticket": [],
+        },
+    )
+    _write_json(results_dir, "judge_agreement_report.v1.json", _judge_agreement_fixture(kappa=0.066, raw_agreement=64.0, pabak=0.28, prevalence=0.76))
+
+    gap46 = {
+        "schema_version": 1,
+        "provider": "test",
+        "config": {},
+        "metrics": {
+            "faithfulness": {"mean": 0.698, "n_scored": 46, "n_total": 46, "n_nan": 0, "complete": True},
+            "answer_relevancy": {"mean": 0.472, "n_scored": 46, "n_total": 46, "n_nan": 0, "complete": True},
+        },
+        "usage": {},
+        "per_ticket": [
+            {"ticket_id": f"T{i:03d}", "category": "easy", "faithfulness": 0.8, "answer_relevancy": 0.47}
+            for i in range(1, 47)
+        ],
+    }
+    _write_json(results_dir, "ragas_scores_gap46.json", gap46)
+
+    def _subset(n, precision=True, recall=None):
+        metrics = {
+            "faithfulness": {"mean": 0.8, "n_scored": n, "n_total": n, "n_nan": 0, "complete": True},
+            "answer_relevancy": {"mean": 0.5, "n_scored": n, "n_total": n, "n_nan": 0, "complete": True},
+        }
+        if precision:
+            metrics["llm_context_precision_with_reference"] = {"mean": 0.99999999998, "n_scored": n, "n_total": n, "n_nan": 0, "complete": True}
+        if recall == "ok":
+            metrics["context_recall"] = {"mean": 1.0, "n_scored": n, "n_total": n, "n_nan": 0, "complete": True}
+        elif recall == "nan":
+            metrics["llm_context_recall"] = {"mean": None, "n_scored": 0, "n_total": n, "n_nan": n, "complete": False}
+        return {"schema_version": 1, "provider": "test", "config": {}, "metrics": metrics, "usage": {}, "per_ticket": []}
+
+    _write_json(results_dir, "ragas_scores_subset8.json", _subset(8, recall="ok"))
+    _write_json(results_dir, "ragas_scores_subset3.json", _subset(3, recall="nan"))
+    _write_json(results_dir, "ragas_scores_subset3_mw16.json", _subset(3, recall="nan"))
+    _write_json(
+        results_dir,
+        "ragas_scores_mood_normalized.json",
+        {
+            "schema_version": 1,
+            "provider": "test",
+            "config": {},
+            "metrics": {
+                "faithfulness": {"mean": 0.85, "n_scored": 10, "n_total": 10, "n_nan": 0, "complete": True},
+                "answer_relevancy": {"mean": 0.45, "n_scored": 10, "n_total": 10, "n_nan": 0, "complete": True},
+            },
+            "usage": {},
+            "per_ticket": [
+                {"ticket_id": f"T{i:03d}", "category": "easy", "faithfulness": 0.85, "answer_relevancy": 0.45}
+                for i in range(1, 11)
+            ],
+        },
+    )
+
+    report = report_mod.build_report(raw_dir, tickets_by_id, safety=safety, results_dir=results_dir)
+    md = report_mod.render_markdown(report)
+
+    # Headline dict, no "PENDING" literal.
+    assert "PENDING" not in md
+    hs = report["task_success"]["hypothesis_semantic"]
+    assert hs["n_correct"] == 41 and hs["n_judged"] == 46
+
+    # RAGAS diagnostic heading present.
+    assert "## RAGAS Metrics" in md
+
+    # Structural pin: none of the four RAGAS metric names appear inside the
+    # ## Task Success section, only in the diagnostic section further down.
+    task_success_block = md.split("## Task Success")[1].split("## ")[0]
+    for name in ("context_precision", "context_recall", "faithfulness", "answer_relevancy"):
+        assert name not in task_success_block, f"{name} leaked into ## Task Success"
+
+    # Judge validation section renders kappa/pabak/caveat.
+    jv_block = md.split("## Judge Validation")[1].split("## ")[0]
+    assert "kappa" in jv_block.lower()
+    assert "pabak" in jv_block.lower()
+    assert "oversample" in jv_block.lower()
+
+    # Rubric-history note present with both kappas.
+    assert "Rubric history" in md
+    assert "0.066" in md or "kappa 0.066" in md.lower()
+
+
+def test_safety_gate_default_python_is_absolute(monkeypatch):
+    # sys.executable is present in a normal pytest run -- the default must
+    # be exactly that, and it must be absolute.
+    default = report_mod._default_venv_python()
+    assert os.path.isabs(default)
+    assert default == report_mod.sys.executable
+
+
+def test_safety_gate_default_python_falls_back_to_absolute_platform_path(monkeypatch):
+    # If sys.executable is empty (embedded interpreter edge case), fall back
+    # to a platform-specific absolute path built from REPO_ROOT.
+    monkeypatch.setattr(report_mod.sys, "executable", "", raising=False)
+
+    monkeypatch.setattr(report_mod.os, "name", "nt", raising=False)
+    default = report_mod._default_venv_python()
+    assert os.path.isabs(default)
+    assert default == str(report_mod.REPO_ROOT / "venv" / "Scripts" / "python.exe")
+
+    monkeypatch.setattr(report_mod.os, "name", "posix", raising=False)
+    monkeypatch.setattr(report_mod.sys, "platform", "linux", raising=False)
+    default = report_mod._default_venv_python()
+    assert os.path.isabs(default)
+    assert default == str(report_mod.REPO_ROOT / "venv" / "bin" / "python")
+
+
+def test_run_safety_gate_resolves_default_python_and_runs():
+    # No python arg -- should use sys.executable (absolute), and the
+    # subprocess should actually run (never UNKNOWN due to a bad path).
+    safety = report_mod.run_safety_gate()
+    assert safety["status"] != "UNKNOWN"
+
+
+def test_run_safety_gate_resolves_relative_python_against_repo_root(tmp_path, monkeypatch):
+    calls = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        raise OSError("boom - never actually invoked in this test")
+
+    monkeypatch.setattr(report_mod.subprocess, "run", fake_run)
+    report_mod.run_safety_gate(python="venv/Scripts/python.exe")
+    assert os.path.isabs(calls["cmd"][0])
+    assert calls["cmd"][0] == str(report_mod.REPO_ROOT / "venv/Scripts/python.exe")
+
+
+def test_run_safety_gate_passes_through_absolute_python_unchanged(monkeypatch):
+    calls = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        raise OSError("boom - never actually invoked in this test")
+
+    monkeypatch.setattr(report_mod.subprocess, "run", fake_run)
+    abs_python = str(report_mod.REPO_ROOT / "some" / "abs" / "python.exe")
+    report_mod.run_safety_gate(python=abs_python)
+    assert calls["cmd"][0] == abs_python

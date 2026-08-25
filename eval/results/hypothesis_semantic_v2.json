@@ -1,0 +1,948 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "model": "openai/gpt-oss-120b",
+    "base_url": "https://inference.baseten.co/v1"
+  },
+  "config": {
+    "n_tickets": 46,
+    "repeats": 3,
+    "gap_set": true,
+    "hypothesis_source": "auto",
+    "hypothesis_source_counts": {
+      "raw": 46,
+      "gap_set": 0
+    },
+    "rubric_version": 2,
+    "rubric_text": "A hypothesis is semantically correct when it identifies the technical root-cause condition supported by the ticket, even if the ticket does not establish the deeper reason that condition occurred.\n\nNaming the technical condition counts even when the gold slug names a deeper mechanism. Concretely: \"the disk is full\" DOES count as correct for gold `disk_log_rotation_gap`. Do not require the hypothesis to state that log rotation failed.\n\nWhether the agent established the cause from evidence is explicitly OUT OF SCOPE for this metric. Judge only the semantic content of the hypothesis against the gold root-cause condition. A well-supported wrong answer is incorrect; an unsupported right answer is correct.\n\nStill incorrect: a hypothesis naming a mechanism that is not the gold root-cause condition at all (e.g. \"the container is not listening on the expected port\" for gold `deploy_healthcheck_misconfiguration` is a different mechanism, not a shallower description of the same one)."
+  },
+  "summary": {
+    "n_judged": 46,
+    "n_correct": 41,
+    "n_incorrect": 5,
+    "n_failed": 0,
+    "semantic_correct_rate": 0.8913043478260869
+  },
+  "per_ticket": [
+    {
+      "ticket_id": "T001",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "Checkout API 500 errors are caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException and request rejections",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the Checkout API 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about the exception type.",
+        "The hypothesis states that the Checkout API 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about the exception type.",
+        "The hypothesis states that the Checkout API 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about the exception type."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T002",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "Redis is hitting its maxmemory limit, causing OOM errors and evictions which reduced cache hit rate and increased application latency",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that Redis is hitting its maxmemory limit, leading to evictions and performance degradation, which directly corresponds to the cache growing beyond its intended capacity. This matches the gold root cause of memory_cache_overgrowth.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache's memory usage grew beyond its capacity, leading to performance degradation. The agent's hypothesis states that Redis hit its maxmemory limit, causing evictions and reduced hit rate, which directly describes the same overgrowth condition. Thus, the hypothesis correctly identifies the underlying root-cause condition.",
+        "The gold root cause 'memory_cache_overgrowth' refers to the cache growing beyond its allocated memory. The agent's hypothesis states that Redis is hitting its maxmemory limit, leading to evictions and performance degradation, which directly describes the same overgrowth condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T003",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Ingress is hitting connection limits and failing to establish upstream connections, resulting in upstream connect errors and 502/503 responses",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly corresponds to the queue exhaustion condition indicated by the gold root cause `network_ingress_queue_exhaustion`. It correctly identifies the same technical condition despite different wording."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T004",
+      "category": "easy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "The readiness probe is failing because the probe endpoint is misconfigured or the application\u2019s startup time exceeds the configured initialDelaySeconds/timeoutSeconds, causing connection\u2011refused and timeout errors",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis attributes the readiness probe failures to a misconfiguration of the probe endpoint (or timing settings), which directly matches the gold root cause of a health\u2011check misconfiguration. This identifies the same technical condition despite added detail about startup delays.",
+        "The hypothesis identifies that the readiness probe failure is due to a misconfigured probe endpoint (or timing settings), which aligns with the gold root cause of a healthcheck misconfiguration. This matches the underlying condition despite additional detail about startup time.",
+        "The hypothesis attributes the readiness probe failures to a misconfigured probe endpoint (or timing settings), which directly matches the gold root cause of a healthcheck misconfiguration. This identifies the same technical condition despite added detail about possible startup delays."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T006",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The order service is exhausting its database connection pool, likely due to an undersized pool or a connection leak, leading to ConnectionPoolTimeoutException errors under moderate load.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition `db_connection_pool_exhaustion`. The additional details about possible undersized pool or leak do not change the identified root cause.",
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition of `db_connection_pool_exhaustion`. The additional details about possible undersized pool or leak do not change the core identification.",
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition of db_connection_pool_exhaustion. The additional details about possible undersized pool or leak do not change the core identification."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T007",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "Redis is exceeding its maxmemory limit, triggering OOM errors and rapid key evictions, which cause cache misses, increased database reads, and slower API performance especially before noon when memory usage peaks.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that Redis exceeds its maxmemory limit, causing key evictions and performance degradation, which directly describes the condition of the memory cache growing too large. This aligns with the gold root cause 'memory_cache_overgrowth', despite different wording.",
+        "The hypothesis states that Redis memory exceeds its maxmemory limit, leading to key evictions and performance degradation. This directly describes the overgrowth of the memory cache, which aligns with the gold root cause `memory_cache_overgrowth`.",
+        "The hypothesis states that Redis exceeds its maxmemory limit, leading to key evictions and performance degradation, which directly describes the overgrowth of the memory cache. This aligns with the gold root cause 'memory_cache_overgrowth', even though it adds detail about maxmemory limits and OOM errors."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T008",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "The latest release introduced a bug that broke the platform\u2019s readiness endpoint, causing connection refusals and HTTP 503 responses, leading to failing health checks and pod restarts.",
+      "hypothesis_source": "raw",
+      "verdict": false,
+      "verdicts": [
+        true,
+        false,
+        false
+      ],
+      "agreement": 0.6666666666666666,
+      "reasonings": [
+        "The hypothesis identifies that the readiness endpoint is broken, causing health check failures and pod restarts, which aligns with the gold root cause of a healthcheck misconfiguration. Naming the broken endpoint and resulting health check failures matches the technical condition described by the gold slug.",
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the health check (e.g., wrong path, port, or settings). The agent attributes the failure to a code bug that broke the readiness endpoint, which is a different mechanism than a configuration error. Therefore the hypothesis does not identify the same underlying root\u2011cause condition.",
+        "The gold root cause is a health\u2011check misconfiguration, i.e., the readiness probe is set up incorrectly. The agent attributes the failure to a bug that broke the readiness endpoint, which is a different mechanism (code defect) rather than a misconfiguration of the health check itself. Therefore the hypothesis does not identify the same underlying condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T009",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "The storage volume is full, causing disk full errors that prevent the analytics collector from writing events and rotating logs.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis correctly identifies the technical condition of a full storage volume (disk full), which is the same root-cause condition referenced by the gold slug `disk_log_rotation_gap`. Naming the disk-full state satisfies the rubric, even though it does not explicitly mention the log rotation failure.",
+        "The hypothesis identifies that the storage volume is full, which matches the technical condition (disk full) underlying the gold root cause `disk_log_rotation_gap`. According to the rubric, naming this condition is sufficient even though the deeper mechanism (log rotation failure) is not explicitly mentioned.",
+        "The hypothesis states that the storage volume is full, which matches the technical condition (disk full) underlying the gold root cause `disk_log_rotation_gap`. According to the rubric, naming this condition is sufficient even though the gold slug references the deeper log rotation failure."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T010",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "hypothesis": "Some auth\u2011api nodes are still using the old signing key after the recent key rotation, causing signature verification failures and intermittent 401 responses depending on which node handles the request.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly describes a signing key mismatch, which aligns with the gold root cause `auth_signing_key_mismatch`. The wording differs but the underlying condition is the same.",
+        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly matches the gold root cause `auth_signing_key_mismatch`, which is a signing key mismatch condition.",
+        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly matches the gold root cause of an auth signing key mismatch."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T011",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Backend services are hitting connection limits during the nightly batch, causing upstream connect errors and the regional load balancer to reject new TCP connections",
+      "hypothesis_source": "raw",
+      "verdict": false,
+      "verdicts": [
+        false,
+        false,
+        false
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The gold root cause is the exhaustion of the network ingress queue, i.e., the queue being full. The agent's hypothesis attributes the issue to backend services hitting connection limits, which is a different mechanism and does not name the ingress queue exhaustion condition.",
+        "The gold root cause is network_ingress_queue_exhaustion, i.e., the ingress queue being near full. The hypothesis attributes the issue to backend services hitting connection limits, which is a different mechanism and does not identify the exhausted ingress queue condition.",
+        "The gold root cause is the exhaustion of the network ingress queue, i.e., the queue being full. The agent's hypothesis attributes the issue to backend services hitting connection limits, which is a different mechanism and does not name the ingress queue exhaustion condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T012",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "The collector failures are caused by disk space exhaustion on the node, leading to \"No space left on device\" errors and inability to write temporary files.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition is sufficient per the rubric, even though it does not mention the log rotation failure.",
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk full condition is sufficient per the rubric, even though the gold slug references the log rotation failure that led to it.",
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition is sufficient per the rubric, even though the gold slug references the log rotation failure that led to it."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T013",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "Readiness probe failures are caused by the app container not listening on the expected port, resulting in connection refused errors and preventing the canary rollout from progressing",
+      "hypothesis_source": "raw",
+      "verdict": false,
+      "verdicts": [
+        false,
+        true,
+        false
+      ],
+      "agreement": 0.6666666666666666,
+      "reasonings": [
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the readiness probe (e.g., wrong port or path). The agent's hypothesis attributes the failure to the container not listening on the expected port, which is a different underlying mechanism rather than a probe misconfiguration. Therefore it does not identify the same root\u2011cause condition.",
+        "The hypothesis attributes the canary rollout stall to readiness probe failures caused by the container not listening on the expected port, which is a misconfiguration of the healthcheck. This aligns with the gold root cause `deploy_healthcheck_misconfiguration`, as both identify a healthcheck-related configuration issue.",
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the readiness probe itself. The agent's hypothesis attributes the probe failure to the container not listening on the expected port, which is a different underlying mechanism rather than a probe misconfiguration. Therefore it does not identify the same root\u2011cause condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T016",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The billing API is experiencing database connection pool exhaustion, causing ConnectionPoolTimeoutException errors that result in intermittent 500 responses during peak traffic",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the billing API is suffering from database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. Both identify the same technical condition causing the intermittent 500 errors.",
+        "The hypothesis explicitly states that the billing API is suffering from database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. The wording and added detail about the resulting errors do not change the identified condition.",
+        "The hypothesis states that the billing API is suffering from database connection pool exhaustion, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the intermittent 500 errors."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T017",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The session-cache has exceeded its configured maxmemory limit, triggering OOM errors and evictions that caused the hit\u2011rate to drop from 94% to 68% while memory usage stayed above 91%",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions. This directly describes the condition of the cache overgrowing, which aligns with the gold root cause `memory_cache_overgrowth`. The wording differences are superficial and do not change the identified root-cause condition.",
+        "The hypothesis states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions. This directly describes the condition of the cache overgrowing, which aligns with the gold root cause `memory_cache_overgrowth`.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended memory limits. The agent's hypothesis explicitly states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions, which aligns with the same underlying condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T018",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "The load balancer\u2019s ingress connection limit is being exceeded, triggering ingress_max_connections_exceeded alerts and upstream connect errors, which cause the storefront request timeouts during the flash sale.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the load balancer's ingress connection limit is being exceeded, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`, even though it adds detail about alerts and downstream errors.",
+        "The hypothesis states that the load balancer's ingress connection limit is exceeded, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`, even though it adds detail about alerts and downstream effects.",
+        "The hypothesis states that the load balancer's ingress connection limit is exceeded, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`. The wording differences are superficial and do not change the identified root-cause condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T020",
+      "category": "easy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "hypothesis": "Some auth\u2011api instances have not been updated with the newly rotated signing key, causing JWT signature verification failures and resulting in 401 errors for mobile clients routed to those instances.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that auth\u2011api instances are still using the old signing key, leading to JWT signature verification failures and 401 errors. This directly describes a signing key mismatch, which aligns with the gold root cause `auth_signing_key_mismatch`.",
+        "The hypothesis states that auth\u2011api instances are using an outdated signing key, leading to JWT signature verification failures and 401 errors. This directly corresponds to the gold root cause of an auth signing key mismatch.",
+        "The gold root cause `auth_signing_key_mismatch` denotes a mismatch between the expected signing key and the one used for JWT verification. The agent's hypothesis explicitly states that some auth\u2011api instances were not updated with the newly rotated signing key, leading to JWT signature verification failures and 401 errors. This directly identifies the same technical condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T021",
+      "category": "easy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "The archival job is failing because the log partition is out of disk space, leading to disk full errors (e.g., \"No space left on device\")",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies that the log partition is out of disk space, i.e., the disk is full, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric even though the deeper log rotation failure is not mentioned.",
+        "The hypothesis identifies that the log partition is out of disk space, i.e., the disk is full. This matches the technical condition implied by the gold root cause `disk_log_rotation_gap`, which is that the disk filled due to a log rotation gap. Naming the disk-full condition is sufficient per the rubric.",
+        "The hypothesis states that the archival job fails due to the log partition being out of disk space, i.e., a disk full condition. This matches the technical condition implied by the gold root cause `disk_log_rotation_gap`, which also results in a full disk. Naming the disk full condition satisfies the rubric even without mentioning the log rotation failure."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T022",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "Checkout service failures are caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException errors and request timeouts",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the checkout failures are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (pool exhaustion) even though it adds details about the resulting exceptions.",
+        "The hypothesis explicitly states that the failures are due to exhaustion of the database connection pool, which directly matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition without needing deeper causal detail.",
+        "The hypothesis explicitly states that the failures are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. Both identify the same technical condition, despite additional detail about the resulting errors."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T023",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The product-recommendation cache is exceeding its configured maxmemory limit, causing OOM errors and rapid key evictions that lead to cache thrashing and a drop in hit rate.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies that the cache exceeds its configured maxmemory limit, leading to memory overuse and evictions. This matches the gold root cause of memory_cache_overgrowth, which denotes the cache growing beyond its memory allocation.",
+        "The hypothesis states that the product-recommendation cache exceeds its configured maxmemory limit, which directly corresponds to the condition of memory cache overgrowth indicated by the gold slug. This matches the underlying root-cause condition despite added detail about OOM errors and evictions.",
+        "The hypothesis states that the product-recommendation cache exceeds its configured maxmemory limit, which directly corresponds to the gold root cause of memory cache overgrowth. This matches the underlying condition despite added detail about OOM errors and evictions."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T024",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Ingress service is hitting its configured maximum connections limit, causing the connection queue depth to exceed its limit, resulting in upstream connect errors and a wave of 502 responses between 9\u201110\u202fAM.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the ingress service reaches its configured maximum connections limit, causing the connection queue depth to exceed its limit, which directly describes the condition of the ingress queue being exhausted. This matches the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress service hits its configured maximum connections limit, causing the connection queue depth to exceed its limit and produce 502 errors. This directly describes the condition of the ingress queue being exhausted, which matches the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress service reaches its configured maximum connections limit, causing the connection queue depth to exceed its limit, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T026",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The invoicing service slowdown is caused by exhaustion of the database connection pool, leading to ConnectionPoolTimeoutException errors and timeouts while waiting for a connection.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the invoicing service slowdown is due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about resulting timeouts.",
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the slowdown, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. This aligns with the rubric that naming the technical condition is sufficient.",
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the slowdown, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. This aligns with the rubric that naming the technical condition is sufficient."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T027",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The search service cache node (Redis) has exceeded its maxmemory limit, triggering OOM errors and rapid key evictions, which cause cache\u2011miss fallbacks to the database and slower search response times.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the Redis cache node exceeded its maxmemory limit, which directly describes the cache overgrowth condition indicated by the gold slug `memory_cache_overgrowth`. This matches the underlying root-cause despite added detail about OOM errors and evictions.",
+        "The hypothesis states that the Redis cache node exceeded its maxmemory limit, which directly corresponds to the cache memory overgrowth condition indicated by the gold slug `memory_cache_overgrowth`. This matches the underlying root-cause condition despite added detail about OOM errors and evictions.",
+        "The hypothesis states that the Redis cache node exceeded its maxmemory limit, which directly corresponds to the cache memory overgrowth condition indicated by the gold slug `memory_cache_overgrowth`. This matches the underlying root-cause condition despite added detail about OOM errors and evictions."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T028",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Intermittent upstream connectivity failures causing ingress upstream connect errors, leading to connection resets and temporary queue buildup, which manifests as flaky behavior for mobile app users",
+      "hypothesis_source": "raw",
+      "verdict": false,
+      "verdicts": [
+        true,
+        false,
+        false
+      ],
+      "agreement": 0.6666666666666666,
+      "reasonings": [
+        "The hypothesis mentions a temporary queue buildup in the ingress component, which aligns with the gold root cause of network_ingress_queue_exhaustion. While it adds a possible upstream connectivity trigger, it still correctly identifies the core condition of the ingress queue becoming exhausted.",
+        "The hypothesis attributes the flaky behavior to intermittent upstream connectivity failures and mentions a temporary queue buildup, but it does not identify the specific technical condition of ingress queue exhaustion (queue being full). It describes a different mechanism rather than naming the queue exhaustion condition.",
+        "The gold root cause is the condition of the network ingress queue being exhausted. The hypothesis attributes the issue to intermittent upstream connectivity failures and only mentions a temporary queue buildup, not the exhaustion itself. This identifies a different underlying mechanism rather than the queue exhaustion condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T030",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "hypothesis": "Recent authentication key rotation caused signature verification failures for requests from certain issuer nodes, leading to intermittent login errors",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures, which is precisely a signing key mismatch. This aligns with the gold root cause `auth_signing_key_mismatch`.",
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures, which is effectively a signing key mismatch. This aligns with the gold root cause `auth_signing_key_mismatch`, identifying the same technical condition.",
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures for certain issuer nodes, which directly describes a mismatch between the expected signing key and the one presented. This aligns with the gold root cause `auth_signing_key_mismatch`, which is the technical condition of a signing key mismatch."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T031",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "The export job is failing because the disk/volume it writes to has run out of space, leading to \"No space left on device\" errors and log rotation failures.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies the disk being full ('No space left on device') as the condition causing the failure, which matches the technical root-cause condition underlying the gold slug `disk_log_rotation_gap`. Naming this condition is sufficient per the rubric, even though the deeper mechanism (log rotation failure) is also mentioned.",
+        "The hypothesis identifies the technical condition of the disk being full, which is the same root-cause condition captured by the gold slug `disk_log_rotation_gap`. Naming the disk exhaustion satisfies the rubric, even though it does not explicitly mention the log rotation failure.",
+        "The hypothesis identifies that the disk/volume is out of space, which is the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric, even though it does not explicitly mention the log rotation failure."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T032",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The reporting service hangs because the database connection pool is exhausted during the reporting job, causing ConnectionPoolTimeoutException errors and request timeouts.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang.",
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang.",
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T033",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The profile service\u2019s Redis cache is exceeding its configured maxmemory limit, causing OOM errors and frequent cache\u2011fallbacks, which leads to the observed gradual latency increase and rising memory usage.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The gold root cause `memory_cache_overgrowth` refers to the cache growing beyond its intended limits, causing performance degradation. The agent's hypothesis identifies that the Redis cache exceeds its maxmemory setting, leading to OOM errors and cache fallbacks, which directly describes the same overgrowth condition. Thus, the hypothesis correctly captures the underlying root\u2011cause condition.",
+        "The hypothesis pinpoints that the Redis cache is exceeding its maxmemory limit, which directly corresponds to the gold root cause of memory cache overgrowth. Both describe the same technical condition of the cache growing beyond its intended capacity, despite differences in phrasing.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache's memory usage grew beyond its intended limits, causing performance degradation. The agent's hypothesis identifies that the Redis cache exceeded its maxmemory setting, leading to OOM errors, cache fallbacks, and rising memory usage, which directly describes the same overgrowth condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T034",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Ingress service is hitting its max\u2011connections limit during the automated batch windows, causing upstream connect errors and connection resets that appear as gateway errors for some API calls",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the ingress service reaches its max\u2011connections limit, which is effectively the condition of the ingress queue being exhausted. This matches the gold root cause `network_ingress_queue_exhaustion` despite different wording.",
+        "The hypothesis states that the ingress service reaches its max\u2011connections limit, which corresponds to the ingress queue becoming exhausted. This matches the gold root cause of network_ingress_queue_exhaustion, even though it adds detail about upstream connect errors.",
+        "The hypothesis states that the ingress service reaches its max\u2011connections limit, which is effectively the same condition as the ingress queue being exhausted. This aligns with the gold root cause of network_ingress_queue_exhaustion, despite different wording."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T035",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "Readiness probes are failing because the application pods are not fully initialized (warm\u2011up) when traffic is routed, leading to connection\u2011refused errors and CrashLoopBackOff events",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis pinpoints that the readiness (health) probes are misbehaving\u2014triggering failures because they fire before the application has warmed up. This matches the gold root cause of a health\u2011check misconfiguration during deployment, even though it adds detail about warm\u2011up timing.",
+        "The hypothesis identifies that the readiness probes are misbehaving because they consider the pod ready before it has fully warmed up, which matches the gold root cause of a health\u2011check misconfiguration. It correctly captures the same underlying condition (probe timing error) even though it adds detail about warm\u2011up.",
+        "The hypothesis pinpoints that the readiness probes are misbehaving\u2014failing early because the pods aren't fully warmed up\u2014causing traffic to be routed before the app is ready. This matches the gold root cause of a health\u2011check (readiness probe) misconfiguration, even though it adds detail about warm\u2011up timing."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T037",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "Backup failures are caused by the target volume running out of disk space, triggering \"No space left on device\" errors during backup operations.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The gold root cause `disk_log_rotation_gap` implies that the disk became full due to failed log rotation. The agent's hypothesis identifies the same technical condition\u2014disk space exhaustion leading to \"No space left on device\" errors\u2014without needing to specify the log rotation failure. Therefore it correctly captures the underlying root\u2011cause condition.",
+        "The hypothesis states that the backup failures are due to the target volume running out of disk space, which directly names the technical condition of a full disk. The gold root cause `disk_log_rotation_gap` also manifests as a full disk due to log rotation failure, and naming the disk-full condition satisfies the rubric.",
+        "The hypothesis identifies that the backup failures are due to the target volume running out of disk space, i.e., the disk is full. This matches the technical condition underlying the gold root cause `disk_log_rotation_gap`, which also results in a full disk due to failed log rotation. Naming the disk-full condition satisfies the rubric."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T038",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "Payments service experiences database connection pool exhaustion causing connection timeouts, which leads to the retry queue backing up during burst periods.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly states that the payments service suffers from database connection pool exhaustion, which matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the same technical condition, despite additional detail about timeouts and queue backup.",
+        "The hypothesis states that the payments service experiences database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the issue, even though it adds context about timeouts and queue backup.",
+        "The hypothesis explicitly states that the payments service suffers from database connection pool exhaustion, which matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition without introducing a different mechanism."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T040",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Ingress proxy is failing to establish upstream connections under load, causing upstream connect errors and resulting in dashboard timeouts",
+      "hypothesis_source": "raw",
+      "verdict": false,
+      "verdicts": [
+        false,
+        false,
+        false
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The gold root cause is the exhaustion of the ingress network queue, a specific technical condition. The hypothesis describes the proxy failing to establish upstream connections under load, which is a symptom rather than naming the queue exhaustion condition. It does not identify the queue depth issue, thus it points to a different mechanism.",
+        "The gold root cause is the exhaustion of the ingress network queue, a specific technical condition. The agent's hypothesis describes upstream connection failures under load without mentioning queue exhaustion, which is a different mechanism rather than naming the same condition.",
+        "The gold root cause is the exhaustion of the ingress queue (queue full). The hypothesis describes upstream connection failures under load, which is a different mechanism and does not explicitly identify the queue exhaustion condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T041",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The checkout service's database connection pool is exhausted, causing ConnectionPoolTimeoutException errors that cascade to the API gateway and reporting worker, leading to elevated error rates across services.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the observed errors.",
+        "The hypothesis explicitly states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the observed errors."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T042",
+      "category": "tool_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The recommendation service is experiencing out-of-memory (OOM) errors because its cache memory usage exceeds the configured maxmemory limit, leading to OOM command failures and service disruption.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies that the recommendation service's cache memory usage exceeds its limit, causing out-of-memory errors. This directly corresponds to the gold root cause of memory cache overgrowth, which is the technical condition of the cache growing beyond its intended size.",
+        "The gold root cause 'memory_cache_overgrowth' denotes that the cache's memory usage grew beyond its limits, causing issues. The agent's hypothesis explicitly states that the recommendation service's cache memory usage exceeds the configured maxmemory limit, leading to OOM errors. This directly identifies the same technical condition of cache overgrowth.",
+        "The gold root cause 'memory_cache_overgrowth' refers to excessive growth of a cache's memory usage. The agent's hypothesis identifies that the recommendation service's cache memory usage exceeds its configured limit, causing OOM errors. This directly names the same technical condition of cache memory overgrowth, satisfying the rubric."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T043",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "The shared ingress layer is saturated, causing upstream connection errors (e.g., \"upstream connect error while proxying request\") for both the public API and the internal admin console, which manifest as gateway errors.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the shared ingress layer is saturated, which directly corresponds to the gold root cause of network_ingress_queue_exhaustion. Both describe the same technical condition of ingress queue exhaustion causing the observed gateway errors.",
+        "The hypothesis states that the shared ingress layer is saturated, which directly corresponds to the gold root cause of network_ingress_queue_exhaustion. Both describe the same technical condition of ingress queue exhaustion causing the observed gateway errors.",
+        "The hypothesis states that the shared ingress layer is saturated, leading to upstream connection errors and gateway errors. This directly corresponds to the gold root cause of network_ingress_queue_exhaustion, which describes queue exhaustion in the ingress layer. The wording differs but the underlying condition is the same."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T044",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "Service C has a readiness probe misconfiguration causing connection refusals and CrashLoopBackOff, leading to its health check failure during the rollout",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that Service C's readiness probe is misconfigured, which directly leads to its health check failure during the rollout. This aligns with the gold root cause `deploy_healthcheck_misconfiguration`, which concerns a health check misconfiguration. The wording and added details do not change the identified underlying condition.",
+        "The hypothesis pinpoints a readiness probe misconfiguration that leads to the service's health check failure during the rollout. This matches the gold root cause of a deployment health check misconfiguration, even though it adds detail about the specific service and symptoms.",
+        "The hypothesis pinpoints a readiness probe misconfiguration that leads to health check failure during the rollout, which directly matches the gold root cause of a deployment healthcheck misconfiguration. The additional details about connection refusals and CrashLoopBackOff are elaborations, not a different mechanism."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T045",
+      "category": "tool_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "hypothesis": "Login failures are caused by a mismatched or invalid shared signing key used by both the mobile gateway and partner API, leading to signature verification failures for incoming requests.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly identifies a mismatched or invalid shared signing key as the cause of the login failures, which directly corresponds to the gold root cause `auth_signing_key_mismatch`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly identifies a mismatched or invalid shared signing key as the cause of the login failures, which directly corresponds to the gold root cause `auth_signing_key_mismatch`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly identifies a mismatched or invalid shared signing key as the cause of the login failures, which aligns directly with the gold root cause `auth_signing_key_mismatch`. The wording and detail are consistent with the underlying condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T046",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "Disk space exhaustion on the ingestion host is causing write failures across the analytics pipeline, archival job, and ingestion service",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies disk space exhaustion on the ingestion host, which is the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric, even though it does not mention the log rotation failure.",
+        "The hypothesis identifies disk space exhaustion on the ingestion host, which is the technical condition (disk full) that the gold root cause `disk_log_rotation_gap` ultimately leads to. Naming the disk full condition satisfies the rubric even though the deeper log rotation failure is not mentioned.",
+        "The hypothesis identifies disk space exhaustion (disk full) on the ingestion host as the cause of the failures. This matches the technical condition underlying the gold root cause `disk_log_rotation_gap`, which is that log rotation failure led to a full disk. Naming the disk-full condition is sufficient per the rubric."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T047",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The order service\u2019s database connection pool is exhausted (ConnectionPoolTimeoutException), causing its latency and propagating delays to the inventory service and notification worker.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly states that the order service's database connection pool is exhausted, which directly matches the gold root cause condition of `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly states that the order service's database connection pool is exhausted, which directly matches the gold root cause condition of `db_connection_pool_exhaustion`. It correctly identifies the technical condition without needing deeper causal detail.",
+        "The hypothesis explicitly states that the order service's database connection pool is exhausted, which directly matches the gold root cause condition of db_connection_pool_exhaustion. This identifies the same technical condition, satisfying the rubric."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T049",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The lookup service cache has exceeded its configured maxmemory limit, triggering OOM errors and memory\u2011pressure evictions, which cause increased latency and force reads to fall back to the primary store.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended limits, causing performance issues. The agent's hypothesis explicitly states that the lookup service cache exceeded its configured maxmemory limit, leading to evictions and latency. This directly identifies the same technical condition, satisfying the rubric.",
+        "The hypothesis states that the lookup service cache exceeded its maxmemory limit, causing OOM errors and evictions, which aligns directly with the gold root cause of memory cache overgrowth. Both describe the same technical condition of the cache growing beyond its configured capacity.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended limits, causing performance issues. The agent's hypothesis explicitly states that the lookup service cache exceeded its configured maxmemory limit, leading to evictions and latency. This directly identifies the same technical condition, so it is semantically correct."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T050",
+      "category": "rag_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "hypothesis": "Ingress is failing to establish upstream connections during peak traffic, resulting in upstream connect errors and mid\u2011handshake drops due to connection\u2011queue saturation and upstream connection exhaustion",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis describes ingress connection failures caused by saturation and exhaustion of the connection queue during peak traffic, which directly matches the gold root cause of network_ingress_queue_exhaustion. It identifies the same technical condition (queue exhaustion) despite using more verbose wording.",
+        "The hypothesis states that ingress experiences connection\u2011queue saturation and upstream connection exhaustion during peak traffic, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`. The wording is more detailed but identifies the same underlying technical condition.",
+        "The hypothesis describes ingress failing to establish upstream connections because the connection queue is saturated and exhausted, which directly corresponds to the gold root cause of network_ingress_queue_exhaustion. Both identify the same technical condition of queue exhaustion causing traffic drops."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T051",
+      "category": "rag_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "hypothesis": "The readiness/liveness probe is misconfigured\u2014its initialDelaySeconds or timeoutSeconds are too short for the new release to become ready, causing the health check to fail immediately after startup.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the readiness/liveness probe is misconfigured, causing the health check to fail. This directly matches the gold root cause of a health check misconfiguration (deploy_healthcheck_misconfiguration). The wording and detail are consistent with the underlying condition.",
+        "The hypothesis states that the readiness/liveness probe is misconfigured, causing the health check to fail. This directly matches the gold root cause of a health check misconfiguration (deploy_healthcheck_misconfiguration).",
+        "The hypothesis states that the readiness/liveness probe is misconfigured, causing the health check to fail. This directly matches the gold root cause of a health check misconfiguration (deploy_healthcheck_misconfiguration). The wording and detail are consistent, so it identifies the same underlying condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T052",
+      "category": "rag_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "hypothesis": "A recent credential refresh introduced a new signing key that was not uniformly propagated to all auth\u2011api nodes, causing signature verification failures on nodes with outdated keys and resulting in intermittent authentication errors for some users.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a mismatch of signing keys across nodes, which matches the gold root cause `auth_signing_key_mismatch`.",
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a signing key mismatch across nodes, which aligns with the gold root cause `auth_signing_key_mismatch`. The wording differences do not change the identified underlying condition.",
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a signing key mismatch, which matches the gold root cause `auth_signing_key_mismatch`. The wording and detail are consistent with the required condition."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T053",
+      "category": "rag_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "hypothesis": "The volume has run out of space due to excessive log generation, causing write operations to fail with \u201cNo space left on device\u201d errors.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis identifies that the volume ran out of space due to excessive log generation, which matches the technical condition of a full disk caused by a log rotation gap. This aligns with the gold root cause, even though it does not explicitly mention the log rotation failure.",
+        "The hypothesis identifies that the volume is out of space caused by excessive log generation, which matches the technical condition of a full disk that the gold root cause `disk_log_rotation_gap` describes. It correctly captures the same underlying root-cause condition, even without explicitly mentioning the log rotation failure.",
+        "The hypothesis states that the volume ran out of space because of excessive log generation, which directly identifies the technical condition of a full disk. This aligns with the gold root cause `disk_log_rotation_gap`, where the underlying issue is log rotation failure leading to a full disk. Naming the disk-full condition is sufficient per the rubric."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T054",
+      "category": "rag_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "hypothesis": "The checkout failures are caused by the database connection pool being exhausted\u2014the connection manager\u2019s limit on simultaneous handles is too low, leading to ConnectionPoolTimeoutException and request rejections during high load.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis explicitly states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. The wording aligns with the technical condition identified in the gold label."
+      ],
+      "error": null
+    },
+    {
+      "ticket_id": "T055",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "hypothesis": "The personalization service's fast\u2011lookup cache (e.g., Redis) has exceeded its configured maxmemory limit, triggering OOM errors and entry eviction, which causes the observed sluggishness and inconsistency.",
+      "hypothesis_source": "raw",
+      "verdict": true,
+      "verdicts": [
+        true,
+        true,
+        true
+      ],
+      "agreement": 1.0,
+      "reasonings": [
+        "The hypothesis states that the fast\u2011lookup cache exceeded its maxmemory limit and evicted entries, which directly describes the cache overgrowth condition captured by the gold slug `memory_cache_overgrowth`. This matches the underlying root\u2011cause despite added detail about OOM errors.",
+        "The hypothesis states that the fast\u2011lookup cache exceeded its memory limit, leading to eviction and performance issues. This directly matches the gold root cause of memory cache overgrowth, which is the condition of the cache growing beyond its allocated capacity.",
+        "The gold slug `memory_cache_overgrowth` denotes that the fast\u2011lookup cache grew beyond its allocated memory, leading to performance issues. The agent's hypothesis explicitly states that the cache exceeded its maxmemory limit, causing OOM errors and eviction, which matches the same underlying condition."
+      ],
+      "error": null
+    }
+  ]
+}

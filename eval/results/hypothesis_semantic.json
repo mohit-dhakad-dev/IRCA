@@ -12,14 +12,16 @@
     "hypothesis_source_counts": {
       "raw": 46,
       "gap_set": 0
-    }
+    },
+    "rubric_version": 2,
+    "rubric_text": "A hypothesis is semantically correct when it identifies the technical root-cause condition supported by the ticket, even if the ticket does not establish the deeper reason that condition occurred.\n\nNaming the technical condition counts even when the gold slug names a deeper mechanism. Concretely: \"the disk is full\" DOES count as correct for gold `disk_log_rotation_gap`. Do not require the hypothesis to state that log rotation failed.\n\nWhether the agent established the cause from evidence is explicitly OUT OF SCOPE for this metric. Judge only the semantic content of the hypothesis against the gold root-cause condition. A well-supported wrong answer is incorrect; an unsupported right answer is correct.\n\nStill incorrect: a hypothesis naming a mechanism that is not the gold root-cause condition at all (e.g. \"the container is not listening on the expected port\" for gold `deploy_healthcheck_misconfiguration` is a different mechanism, not a shallower description of the same one)."
   },
   "summary": {
     "n_judged": 46,
-    "n_correct": 39,
-    "n_incorrect": 7,
+    "n_correct": 43,
+    "n_incorrect": 3,
     "n_failed": 0,
-    "semantic_correct_rate": 0.8478260869565217
+    "semantic_correct_rate": 0.9347826086956522
   },
   "per_ticket": [
     {
@@ -36,9 +38,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent attributes the intermittent 500 errors to exhaustion of the database connection pool, which matches the gold root cause label 'db_connection_pool_exhaustion'. The wording differs slightly but the underlying mechanism is the same.",
-        "The agent attributes the intermittent 500 errors to the database connection pool being exhausted, which directly matches the gold root cause of db_connection_pool_exhaustion. The wording differs slightly but the underlying mechanism is the same.",
-        "The agent attributes the intermittent 500 errors to exhaustion of the database connection pool, which matches the gold root cause label 'db_connection_pool_exhaustion'. The wording differs slightly but the underlying mechanism is the same."
+        "The hypothesis explicitly states that the 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition without needing deeper causal detail.",
+        "The hypothesis states that the Checkout API 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about the resulting exception.",
+        "The hypothesis states that the Checkout API 500 errors are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (connection pool exhaustion) even though it adds detail about the resulting exception."
       ],
       "error": null
     },
@@ -56,9 +58,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'memory_cache_overgrowth' indicates that the cache memory usage has grown beyond its capacity. The agent's hypothesis that Redis is hitting its maxmemory limit, leading to OOM errors and evictions, describes the same underlying issue of excessive memory consumption causing performance degradation.",
-        "The gold root cause 'memory_cache_overgrowth' refers to excessive memory usage in the cache. The agent attributes the issue to Redis hitting its maxmemory limit, leading to evictions and performance degradation, which is the same underlying mechanism of memory overgrowth.",
-        "The gold root cause 'memory_cache_overgrowth' indicates that the cache's memory usage has grown excessively. The agent attributes the issue to Redis hitting its maxmemory limit, leading to evictions and OOM errors, which is precisely the same underlying mechanism of memory overgrowth causing performance degradation."
+        "The gold slug `memory_cache_overgrowth` denotes that the cache's memory usage grew beyond its capacity. The agent's hypothesis states that Redis hit its maxmemory limit, leading to OOM errors and evictions, which directly describes the same over\u2011memory condition. Thus the hypothesis correctly identifies the underlying root\u2011cause condition.",
+        "The gold root cause `memory_cache_overgrowth` refers to the cache's memory usage exceeding its capacity. The agent's hypothesis states that Redis is hitting its maxmemory limit, leading to OOM errors and evictions, which directly describes the same overgrowth condition. Thus, the hypothesis correctly identifies the underlying root-cause condition.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache's memory usage grew beyond its capacity. The agent's hypothesis states that Redis hit its maxmemory limit, leading to OOM errors and evictions, which directly describes the same over\u2011memory condition. Thus the hypothesis correctly identifies the underlying root\u2011cause condition."
       ],
       "error": null
     },
@@ -76,9 +78,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis states that the ingress is hitting its connection limits, leading to upstream connection failures and 502/503 errors. This aligns with the gold root cause of network_ingress_queue_exhaustion, which describes the ingress queue being exhausted.",
-        "The hypothesis states that the ingress is hitting its connection limits, leading to upstream connection failures and 502/503 errors. This matches the gold root cause of network_ingress_queue_exhaustion, which describes the ingress queue being exhausted.",
-        "The hypothesis states that the ingress is hitting its connection limits, leading to upstream connection failures and 502/503 errors. This matches the gold root cause of network_ingress_queue_exhaustion, which describes the ingress queue being exhausted."
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`, even though it does not name the slug explicitly.",
+        "The hypothesis states that the ingress is hitting connection limits and failing to establish upstream connections, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`, even though it does not name the slug explicitly."
       ],
       "error": null
     },
@@ -96,9 +98,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent attributes the failure to a misconfigured readiness probe (or timing settings), which aligns with the gold root cause of a healthcheck misconfiguration. Both point to the same underlying issue despite extra detail about startup time.",
-        "The agent attributes the readiness probe failures to a misconfigured probe endpoint or inappropriate timing settings, which aligns with the gold root cause of a health\u2011check (readiness probe) misconfiguration.",
-        "The agent attributes the readiness probe failures to a misconfigured health\u2011check endpoint (and related timing settings), which aligns with the gold root cause of a health\u2011check misconfiguration. The additional detail about startup time does not change the underlying identification of a health\u2011check configuration issue."
+        "The hypothesis points to a misconfigured readiness probe endpoint (or probe timing parameters), which directly aligns with the gold root cause of a health\u2011check misconfiguration. This matches the underlying condition despite additional detail about startup time.",
+        "The hypothesis points to a misconfigured readiness probe endpoint, which directly aligns with the gold root cause of a health\u2011check misconfiguration. Even though it also mentions possible startup\u2011time delays, the core identified condition matches the gold slug.",
+        "The gold root cause is a health\u2011check (readiness probe) misconfiguration. The agent\u2019s hypothesis explicitly cites a misconfigured probe endpoint as a reason for the failures, which matches the underlying condition. Although it also mentions possible startup\u2011time delays, the core identified cause aligns with the gold slug."
       ],
       "error": null
     },
@@ -116,9 +118,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis states that the order service is exhausting its database connection pool, which directly aligns with the gold root cause of db_connection_pool_exhaustion. The additional details about pool size or leaks do not change the identified underlying cause.",
-        "The agent correctly identifies that the order service is exhausting its database connection pool, which aligns with the gold root cause label of db_connection_pool_exhaustion. The mention of an undersized pool or a leak provides additional detail but does not change the underlying cause.",
-        "The agent correctly identifies that the order service is exhausting its database connection pool, which aligns with the gold root cause of db_connection_pool_exhaustion. The mention of an undersized pool or a leak adds detail but does not change the underlying cause."
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition `db_connection_pool_exhaustion`. The additional details about possible undersized pool or leak do not change the identified root cause.",
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition `db_connection_pool_exhaustion`. It correctly identifies the technical condition without needing to pinpoint the deeper cause.",
+        "The hypothesis explicitly states that the order service is exhausting its database connection pool, which matches the gold root cause condition of `db_connection_pool_exhaustion`. The additional details about possible undersized pool or leak do not change the identified root cause."
       ],
       "error": null
     },
@@ -136,9 +138,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent attributes the issue to Redis exceeding its memory limit, leading to evictions and cache misses, which directly matches the gold root cause of memory cache overgrowth. The additional details about OOM errors and timing do not change the underlying mechanism.",
-        "The hypothesis attributes the issue to Redis memory growing beyond its limit, leading to evictions and cache misses that degrade API performance. This matches the gold root cause of memory cache overgrowth, despite extra detail about OOM errors and timing.",
-        "The hypothesis attributes the issue to Redis memory exceeding its limit, leading to key evictions and cache misses that degrade API performance. This directly corresponds to the gold root cause of memory cache overgrowth, despite differences in phrasing."
+        "The hypothesis states that Redis exceeds its maxmemory limit, causing key evictions and performance degradation, which directly describes the condition of the memory cache growing too large. This aligns with the gold root cause 'memory_cache_overgrowth', even though it adds detail about maxmemory limits and OOM errors.",
+        "The hypothesis states that Redis exceeds its maxmemory limit, leading to key evictions and performance degradation, which directly matches the gold root cause of memory cache overgrowth. It correctly identifies the technical condition of cache memory overgrowth.",
+        "The hypothesis states that Redis exceeds its maxmemory limit, leading to key evictions and the observed performance degradation. This directly describes the condition of memory cache overgrowth indicated by the gold slug, even though it adds detail about maxmemory limits and OOM errors."
       ],
       "error": null
     },
@@ -150,15 +152,15 @@
       "hypothesis_source": "raw",
       "verdict": false,
       "verdicts": [
-        false,
+        true,
         false,
         false
       ],
-      "agreement": 1.0,
+      "agreement": 0.6666666666666666,
       "reasonings": [
-        "The gold root cause points to a misconfiguration of the deployment health check, whereas the agent attributes the failure to a code bug that broke the readiness endpoint. This is a different underlying mechanism, so the hypothesis does not match the gold root cause.",
-        "The gold root cause points to a misconfiguration of the deployment health check, whereas the agent attributes the failure to a code bug that broke the readiness endpoint. This identifies a different underlying mechanism, not the misconfiguration.",
-        "The gold root cause points to a misconfiguration of the deployment health check, whereas the agent attributes the failure to a code bug that broke the readiness endpoint. This identifies a different underlying mechanism, so the hypothesis does not match the gold root cause."
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a health\u2011check failure caused by a misconfiguration. The agent\u2019s hypothesis identifies the same technical condition \u2013 the readiness endpoint is broken, leading to failing health checks and pod restarts. Naming the health\u2011check failure (the technical condition) satisfies the rubric even though the hypothesis attributes it to a bug rather than a misconfiguration.",
+        "The gold root cause `deploy_healthcheck_misconfiguration` points to a misconfiguration of the health check (e.g., wrong path or port). The agent's hypothesis attributes the failure to a code bug that broke the readiness endpoint, which is a different underlying mechanism. While both describe failing health checks, the hypothesis does not identify the misconfiguration condition, so it does not match the gold root cause.",
+        "The gold root cause is a misconfiguration of the health checks, whereas the hypothesis attributes the failure to a bug in the readiness endpoint. This identifies a different underlying mechanism rather than the misconfiguration, so it does not match the gold condition."
       ],
       "error": null
     },
@@ -168,17 +170,17 @@
       "gold_root_cause": "disk_log_rotation_gap",
       "hypothesis": "The storage volume is full, causing disk full errors that prevent the analytics collector from writing events and rotating logs.",
       "hypothesis_source": "raw",
-      "verdict": false,
+      "verdict": true,
       "verdicts": [
-        false,
-        false,
-        false
+        true,
+        true,
+        true
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that allowed logs to accumulate and fill the disk. The agent's hypothesis merely states that the storage volume is full, describing the symptom rather than the underlying mechanism (the log rotation gap). Therefore it does not identify the same root cause.",
-        "The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that allowed logs to accumulate and fill the disk. The agent's hypothesis merely states that the volume is full and causing errors, without identifying the log rotation gap as the underlying mechanism.",
-        "The agent's hypothesis merely states that the storage volume is full, causing disk full errors, but it does not identify the underlying mechanism\u2014a gap in log rotation\u2014that led to the disk filling up. The gold root cause 'disk_log_rotation_gap' specifies the cause, which the agent fails to mention."
+        "The hypothesis identifies the technical condition of a full storage volume (disk full), which matches the condition supported by the ticket. According to the rubric, naming this condition is sufficient even though the gold root cause (`disk_log_rotation_gap`) refers to the deeper mechanism of log rotation failure.",
+        "The hypothesis correctly identifies the technical condition of a full storage volume (disk full), which is the observable root-cause condition supported by the ticket. According to the rubric, naming this condition is sufficient even though it does not explicitly mention the underlying log rotation failure.",
+        "The hypothesis states that the storage volume is full, which matches the technical condition of a full disk that the gold root cause `disk_log_rotation_gap` ultimately manifests as. According to the rubric, naming the disk-full condition is sufficient even though the gold label refers to the underlying log rotation failure."
       ],
       "error": null
     },
@@ -196,9 +198,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly corresponds to an authentication signing key mismatch, which is exactly what the gold root cause slug describes.",
-        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly corresponds to an authentication signing key mismatch, which is exactly what the gold root cause slug describes.",
-        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly corresponds to an authentication signing key mismatch, which is exactly what the gold root cause slug describes."
+        "The hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly matches the gold root cause of an auth signing key mismatch.",
+        "The gold root cause `auth_signing_key_mismatch` denotes a mismatch between the expected signing key and the one used by services. The agent's hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures and intermittent 401 errors. This directly identifies the same technical condition of a signing key mismatch.",
+        "The gold root cause `auth_signing_key_mismatch` denotes a mismatch between signing keys used by services. The agent's hypothesis states that some auth\u2011api nodes are still using the old signing key after rotation, leading to signature verification failures. This directly identifies the same technical condition of a signing key mismatch, satisfying the rubric."
       ],
       "error": null
     },
@@ -216,9 +218,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause points to exhaustion of the network ingress queue, whereas the agent attributes the issue to backend services hitting their own connection limits. These are distinct mechanisms; the hypothesis does not identify the queue exhaustion.",
-        "The gold root cause points to exhaustion of the network ingress queue, whereas the agent attributes the issue to backend services hitting connection limits. These are distinct mechanisms; the hypothesis does not capture the network ingress queue exhaustion.",
-        "The gold root cause is network_ingress_queue_exhaustion, indicating the ingress queue is saturated. The agent attributes the issue to backend services hitting connection limits, which is a different mechanism than queue exhaustion."
+        "The gold root cause is the exhaustion of the network ingress queue, i.e., the queue being full. The agent's hypothesis attributes the issue to backend services hitting connection limits, which is a different mechanism and does not identify the queue exhaustion condition.",
+        "The gold root cause is the exhaustion of the network ingress queue, a technical condition where the queue is full. The agent's hypothesis attributes the problem to backend services hitting connection limits, which is a different mechanism and does not identify the queue exhaustion condition. Therefore it does not match the underlying root-cause condition.",
+        "The hypothesis attributes the load balancer rejections to backend services hitting connection limits, which is a different mechanism than the ingress queue being exhausted. It does not identify the technical condition of network_ingress_queue_exhaustion (the ingress queue reaching capacity)."
       ],
       "error": null
     },
@@ -230,15 +232,15 @@
       "hypothesis_source": "raw",
       "verdict": true,
       "verdicts": [
-        false,
+        true,
         true,
         true
       ],
-      "agreement": 0.6666666666666666,
+      "agreement": 1.0,
       "reasonings": [
-        "The gold root cause points to a log rotation gap that caused the disk to fill up, whereas the agent only identifies disk space exhaustion as the cause. While both involve a full disk, the agent does not pinpoint the underlying mechanism (log rotation gap) and thus does not match the gold root cause.",
-        "The gold root cause 'disk_log_rotation_gap' points to disk space exhaustion caused by logs not being rotated. The agent's hypothesis attributes the collector failures to disk space exhaustion and 'No space left on device' errors, which captures the same underlying mechanism despite being less specific.",
-        "The agent attributes the collector failures to disk space exhaustion, which is the direct consequence of the log rotation gap indicated by the gold root cause. Both point to the same underlying issue of insufficient disk space caused by logs not being rotated."
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric even though it does not mention the log rotation failure.",
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the symptom of a full disk satisfies the rubric, even though it does not mention the log rotation failure.",
+        "The hypothesis identifies disk space exhaustion (disk full) as the cause of the failures, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk full condition satisfies the rubric even though it does not specify the log rotation failure."
       ],
       "error": null
     },
@@ -250,15 +252,15 @@
       "hypothesis_source": "raw",
       "verdict": true,
       "verdicts": [
-        true,
+        false,
         true,
         true
       ],
-      "agreement": 1.0,
+      "agreement": 0.6666666666666666,
       "reasonings": [
-        "The gold root cause points to a misconfiguration of the deployment health check. The agent attributes the readiness probe failures to the container not listening on the expected port, which is a specific form of health check misconfiguration. Thus, both identify the same underlying issue.",
-        "The gold root cause denotes a misconfiguration of the deployment health check. The agent attributes the readiness probe failures to the container not listening on the expected port, which is a specific form of health check misconfiguration. Thus, both identify the same underlying issue.",
-        "The gold root cause points to a misconfiguration of the deployment health checks. The agent attributes the readiness probe failures to the container not listening on the expected port, which is a specific form of health check misconfiguration. Thus, both identify the same underlying issue."
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the readiness probe itself. The agent's hypothesis attributes the failure to the container not listening on the expected port, which is a different underlying mechanism rather than a probe misconfiguration. Therefore it does not identify the same root\u2011cause condition.",
+        "The hypothesis attributes the canary rollout stall to readiness probe failures caused by the container not listening on the expected port, which is a misconfiguration of the healthcheck. This matches the gold root cause `deploy_healthcheck_misconfiguration`, as both identify a healthcheck-related configuration issue.",
+        "The hypothesis attributes the rollout stall to readiness probe failures caused by the container not listening on the expected port, which is a form of healthcheck misconfiguration. This aligns with the gold root cause `deploy_healthcheck_misconfiguration`."
       ],
       "error": null
     },
@@ -276,9 +278,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent attributes the intermittent 500 errors to exhaustion of the database connection pool, which aligns directly with the gold root cause label 'db_connection_pool_exhaustion'. The wording and added detail about ConnectionPoolTimeoutException do not change the identified underlying cause.",
-        "The agent attributes the intermittent 500 errors to exhaustion of the database connection pool, which aligns directly with the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about ConnectionPoolTimeoutException does not change the identified underlying cause.",
-        "The agent attributes the intermittent 500 errors to exhaustion of the database connection pool, which aligns directly with the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about ConnectionPoolTimeoutException does not change the identified underlying cause."
+        "The hypothesis states that the billing API is suffering from database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the intermittent 500 errors.",
+        "The hypothesis states that the billing API is suffering from database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. Both identify the same technical condition causing the intermittent 500 errors.",
+        "The hypothesis states that the billing API is suffering from database connection pool exhaustion, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. Both identify the same technical condition causing the intermittent 500 errors."
       ],
       "error": null
     },
@@ -296,9 +298,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "Both the gold label and the hypothesis point to the cache growing beyond its intended memory limits. The hypothesis explains that the session cache exceeded its maxmemory setting, causing high memory usage and evictions, which matches the 'memory_cache_overgrowth' root cause.",
-        "The hypothesis attributes the problem to the session cache exceeding its memory capacity (maxmemory limit), leading to high memory usage and evictions that drop the hit rate. This aligns with the gold root cause 'memory_cache_overgrowth', which denotes the cache growing beyond its intended memory limits.",
-        "The hypothesis attributes the problem to the cache exceeding its memory limits, causing evictions and a drop in hit rate. This aligns with the gold root cause 'memory_cache_overgrowth', which denotes excessive growth of the cache memory usage."
+        "The hypothesis states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions. This directly describes the condition of the cache overgrowing, which aligns with the gold root cause `memory_cache_overgrowth`. The wording and added detail do not change the identified underlying condition.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended memory limits. The agent's hypothesis explicitly states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions. This directly identifies the same underlying condition, just with more detail.",
+        "The hypothesis states that the session cache exceeded its configured maxmemory limit, leading to high memory usage and evictions. This directly describes the condition of the cache overgrowing, which aligns with the gold root cause `memory_cache_overgrowth`. The wording differences are superficial and do not change the identified root cause."
       ],
       "error": null
     },
@@ -316,9 +318,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "Both the hypothesis and the gold label point to the same issue: the load balancer's ingress queue/connection limit being saturated, causing request timeouts. The hypothesis adds detail about alerts and upstream errors but does not change the underlying mechanism.",
-        "Both the hypothesis and the gold label point to the same issue: the load balancer's ingress queue is saturated because the connection limit is exceeded, causing request timeouts. The wording differs but the underlying mechanism is identical.",
-        "Both the hypothesis and the gold root cause describe the same issue: the load balancer's ingress queue is saturated because the connection limit is exceeded, leading to request timeouts. The wording differs but the underlying mechanism is identical."
+        "The hypothesis identifies that the load balancer's ingress connection limit is being exceeded, which directly corresponds to the network ingress queue being exhausted as described by the gold root cause. This matches the technical condition despite different wording.",
+        "The hypothesis states that the load balancer's ingress connection limit is exceeded, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`. The wording differs but identifies the same technical condition.",
+        "The hypothesis states that the load balancer's ingress connection limit is being exceeded, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`. The wording differs but identifies the same technical condition."
       ],
       "error": null
     },
@@ -336,9 +338,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis states that certain auth\u2011api instances are still using the old signing key, leading to JWT signature verification failures and 401 errors. This directly corresponds to a signing key mismatch, which is exactly what the gold root cause slug 'auth_signing_key_mismatch' describes.",
-        "The hypothesis states that certain auth\u2011api instances are still using the old signing key, leading to JWT verification failures and 401 errors. This directly corresponds to a signing key mismatch, which is exactly what the gold root cause slug 'auth_signing_key_mismatch' describes.",
-        "The hypothesis attributes the 401 errors to some auth\u2011api instances still using the old signing key, leading to JWT signature verification failures. This directly corresponds to a signing key mismatch, which is exactly what the gold root cause slug 'auth_signing_key_mismatch' describes."
+        "The hypothesis states that certain auth\u2011api instances are still using the old signing key, leading to JWT verification failures and 401 errors. This directly corresponds to the gold root cause of a signing key mismatch (auth_signing_key_mismatch). The wording differs but identifies the same technical condition.",
+        "The hypothesis states that auth\u2011api instances are still using the old signing key, leading to JWT signature verification failures and 401 errors. This directly describes a signing key mismatch, which aligns with the gold root cause `auth_signing_key_mismatch`.",
+        "The hypothesis states that auth\u2011api instances are still using the old signing key, leading to JWT signature verification failures and 401 errors. This directly matches the gold root cause of an auth signing key mismatch."
       ],
       "error": null
     },
@@ -348,17 +350,17 @@
       "gold_root_cause": "disk_log_rotation_gap",
       "hypothesis": "The archival job is failing because the log partition is out of disk space, leading to disk full errors (e.g., \"No space left on device\")",
       "hypothesis_source": "raw",
-      "verdict": false,
+      "verdict": true,
       "verdicts": [
-        false,
-        false,
-        false
+        true,
+        true,
+        true
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that allowed logs to accumulate and fill the partition. The agent's hypothesis only attributes the failure to the partition being full, without identifying the missing rotation as the underlying mechanism.",
-        "The agent attributes the failure to the log partition being full, which describes the symptom rather than the underlying mechanism. The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that allowed logs to accumulate and fill the disk. Since the hypothesis does not identify this rotation gap, it does not match the gold root cause.",
-        "The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that allowed logs to accumulate and fill the partition. The agent's hypothesis only states that the partition is full, attributing the failure to lack of space, without identifying the missing log rotation as the underlying mechanism."
+        "The hypothesis identifies that the log partition is out of disk space, i.e., the disk is full. This matches the technical condition implied by the gold root cause `disk_log_rotation_gap`, which is that logs filled the disk. Naming the disk-full condition satisfies the rubric even without mentioning the log rotation failure.",
+        "The hypothesis identifies that the log partition is out of disk space, causing disk full errors. This matches the technical condition underlying the gold root cause `disk_log_rotation_gap`, which is that the disk is full due to a log rotation gap. Naming the disk-full condition is sufficient per the rubric.",
+        "The hypothesis identifies that the log partition is out of disk space, i.e., the disk is full. This matches the technical condition underlying the gold root cause `disk_log_rotation_gap`, which is that log rotation failure caused the disk to fill. Naming the disk-full condition is sufficient per the rubric."
       ],
       "error": null
     },
@@ -376,9 +378,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis states that the checkout failures stem from exhaustion of the database connection pool, which directly matches the gold root cause of db_connection_pool_exhaustion. The additional detail about timeout errors does not change the identified underlying cause.",
-        "The hypothesis states that the checkout failures are due to exhaustion of the database connection pool, which directly corresponds to the gold root cause label 'db_connection_pool_exhaustion'. The wording and added details about specific exceptions do not change the identified underlying cause.",
-        "The agent attributes the checkout failures to exhaustion of the database connection pool, which directly matches the gold root cause of db_connection_pool_exhaustion. The wording and added detail about specific exceptions do not change the identified underlying cause."
+        "The hypothesis states that the checkout failures are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (pool exhaustion) even though it adds detail about the resulting errors.",
+        "The hypothesis states that the checkout failures are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition (pool exhaustion) even though it adds detail about the resulting errors.",
+        "The hypothesis explicitly states that the failures are due to exhaustion of the database connection pool, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition without introducing a different mechanism."
       ],
       "error": null
     },
@@ -396,9 +398,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'memory_cache_overgrowth' refers to the cache consuming more memory than intended. The agent's hypothesis attributes the issue to the cache exceeding its maxmemory limit, causing evictions and thrashing, which is precisely an overgrowth of memory usage. Thus, both identify the same underlying cause.",
-        "The hypothesis attributes the issue to the cache exceeding its maxmemory limit, leading to evictions and thrashing, which aligns with the gold root cause of memory cache overgrowth. Both identify excessive memory usage of the cache as the underlying mechanism.",
-        "The hypothesis attributes the thrashing to the cache exceeding its memory limit and evicting keys, which is precisely the condition described by the gold root cause 'memory_cache_overgrowth'. The wording differs but the underlying mechanism\u2014excessive memory consumption by the cache\u2014is the same."
+        "The hypothesis states that the cache exceeds its configured maxmemory limit, which directly corresponds to the gold root cause of memory cache overgrowth. Both identify the same technical condition of the cache growing beyond its intended capacity.",
+        "The hypothesis states that the product-recommendation cache exceeds its configured maxmemory limit, which directly describes the condition of memory cache overgrowth. This matches the gold root cause slug, despite added detail about OOM errors and evictions.",
+        "The hypothesis identifies that the cache exceeds its configured maxmemory limit, leading to memory overuse and evictions. This matches the gold root cause of memory_cache_overgrowth, which denotes the cache growing beyond its memory allocation."
       ],
       "error": null
     },
@@ -416,9 +418,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the 502 wave to the ingress service exceeding its configured maximum connections, which directly matches the gold root cause of network ingress queue exhaustion. Both describe the same underlying mechanism of the ingress queue being exhausted.",
-        "The hypothesis attributes the 502 wave to the ingress service exceeding its configured maximum connections, which directly matches the gold root cause of network ingress queue exhaustion. Both describe the same underlying mechanism of the ingress queue being exhausted.",
-        "The hypothesis attributes the 502 wave to the ingress service exceeding its configured maximum connections, which directly matches the gold root cause of network ingress queue exhaustion. Both describe the same underlying mechanism of the ingress queue being saturated."
+        "The hypothesis states that the ingress service hits its maximum connections limit, causing the connection queue depth to exceed its limit, which matches the gold root cause of network_ingress_queue_exhaustion. It correctly identifies the same technical condition despite different wording.",
+        "The hypothesis states that the ingress service hits its configured maximum connections limit, causing the connection queue depth to exceed its limit and produce 502 errors. This directly describes the condition of the ingress queue being exhausted, which matches the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that the ingress service hits its configured maximum connections limit, causing the connection queue depth to exceed its limit, which directly matches the gold root cause of network_ingress_queue_exhaustion. It correctly identifies the same technical condition."
       ],
       "error": null
     },
@@ -436,9 +438,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent explicitly attributes the invoicing service slowdown to exhaustion of the database connection pool, which matches the gold root cause label 'db_connection_pool_exhaustion'. The wording and added detail about ConnectionPoolTimeoutException do not change the identified underlying cause.",
-        "The agent correctly identifies that the slowdown is due to the database connection pool being exhausted, which matches the gold root cause 'db_connection_pool_exhaustion'. The wording and added details about ConnectionPoolTimeoutException do not change the underlying cause.",
-        "The agent explicitly attributes the invoicing service slowdown to exhaustion of the database connection pool, which matches the gold root cause slug 'db_connection_pool_exhaustion'. The wording and added detail about ConnectionPoolTimeoutException do not change the identified underlying cause."
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the slowdown, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. This aligns with the rubric that naming the technical condition is sufficient.",
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the slowdown, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. This aligns with the rubric that naming the technical condition is sufficient.",
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the slowdown, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. This aligns with the rubric that naming the technical condition is sufficient."
       ],
       "error": null
     },
@@ -456,9 +458,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the slowdown to the cache node's memory usage exceeding its limit, leading to evictions and cache\u2011miss fallbacks. This matches the gold root cause of memory cache overgrowth, which describes the cache growing beyond its capacity.",
-        "The hypothesis attributes the slowdown to the cache node's memory usage exceeding its limits, leading to evictions and cache\u2011miss fallbacks. This aligns with the gold root cause 'memory_cache_overgrowth', which denotes excessive growth of cache memory consumption.",
-        "The hypothesis attributes the slowdown to the cache node exceeding its memory capacity, causing evictions and cache\u2011miss fallbacks. This aligns with the gold root cause of memory cache overgrowth, just described with more detail about maxmemory limits and OOM errors."
+        "The gold root cause 'memory_cache_overgrowth' denotes that the cache grew beyond its allocated memory, causing performance degradation. The agent's hypothesis states that the Redis cache node exceeded its maxmemory limit, leading to OOM errors and evictions, which is precisely the same technical condition.",
+        "The hypothesis states that the Redis cache node exceeded its maxmemory limit, leading to OOM errors and evictions. This directly describes the condition of the memory cache growing beyond its capacity, which aligns with the gold root cause `memory_cache_overgrowth`. The wording is more detailed but identifies the same underlying technical condition.",
+        "The gold root cause 'memory_cache_overgrowth' refers to the cache growing beyond its memory capacity. The agent's hypothesis explicitly states that the Redis cache node exceeded its maxmemory limit, leading to OOM errors and evictions, which aligns with the same underlying condition of memory overgrowth."
       ],
       "error": null
     },
@@ -468,17 +470,17 @@
       "gold_root_cause": "network_ingress_queue_exhaustion",
       "hypothesis": "Intermittent upstream connectivity failures causing ingress upstream connect errors, leading to connection resets and temporary queue buildup, which manifests as flaky behavior for mobile app users",
       "hypothesis_source": "raw",
-      "verdict": false,
+      "verdict": true,
       "verdicts": [
-        false,
-        false,
+        true,
+        true,
         false
       ],
-      "agreement": 1.0,
+      "agreement": 0.6666666666666666,
       "reasonings": [
-        "The gold root cause points to the ingress queue itself reaching its limit (queue exhaustion), whereas the agent attributes the issue to intermittent upstream connectivity failures that cause connection resets and only secondary queue buildup. This identifies a different underlying mechanism.",
-        "The gold root cause pinpoints the ingress queue becoming exhausted as the primary issue. The agent attributes the flaky behavior to intermittent upstream connectivity failures that cause temporary queue buildup, shifting the underlying mechanism away from queue exhaustion itself. Thus, the hypothesis does not identify the same root cause.",
-        "The gold root cause is that the network ingress queue becomes exhausted, whereas the agent attributes the issue to intermittent upstream connectivity failures that cause connection resets and only temporarily fill the queue. This points to a different underlying mechanism, not the queue exhaustion itself."
+        "The gold root cause is the ingress queue becoming exhausted. The hypothesis mentions a temporary queue buildup caused by upstream connectivity issues, which directly references the same technical condition of the ingress queue reaching its limit. Adding a possible upstream cause does not change the identification of the queue exhaustion condition.",
+        "The hypothesis identifies that a temporary queue buildup (i.e., the ingress queue approaching/exhausting its limit) is responsible for the flaky behavior, which matches the gold condition of network_ingress_queue_exhaustion. Adding upstream connectivity failures as a cause does not change the fact that the core technical condition\u2014queue exhaustion\u2014is correctly named.",
+        "The gold root cause is the technical condition of the ingress queue being exhausted (full). The hypothesis only mentions a temporary queue buildup, not that the queue reached its limit or was exhausted. While it notes connectivity issues and queue increase, it does not identify the specific condition of queue exhaustion, so it does not match the gold root cause."
       ],
       "error": null
     },
@@ -496,9 +498,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the login failures to a recent authentication key rotation that caused signature verification failures, which is effectively a mismatch between the expected signing key and the one used by certain issuer nodes. This aligns with the gold root cause of an auth signing key mismatch.",
-        "The hypothesis attributes the login failures to a recent authentication key rotation that resulted in signature verification failures, which is precisely a mismatch between the expected signing key and the one used by certain issuer nodes. This aligns directly with the gold root cause of an auth signing key mismatch.",
-        "The hypothesis attributes the login failures to a recent authentication key rotation that caused signature verification failures, which is effectively a mismatch between the signing key used by issuers and the expected key. This aligns with the gold root cause 'auth_signing_key_mismatch', indicating the same underlying issue."
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures, which is precisely a signing key mismatch. This aligns with the gold root cause `auth_signing_key_mismatch`. The wording adds detail but does not change the underlying condition.",
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures, which is precisely a signing key mismatch. This aligns with the gold root cause `auth_signing_key_mismatch`, even though it adds context about the rotation event.",
+        "The hypothesis states that a recent authentication key rotation led to signature verification failures for certain issuer nodes, which directly describes a mismatch between the expected signing key and the one presented. This aligns with the gold root cause `auth_signing_key_mismatch`, which is the technical condition of a signing key mismatch."
       ],
       "error": null
     },
@@ -516,9 +518,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'disk_log_rotation_gap' refers to a failure in log rotation that leads to disk space exhaustion. The agent's hypothesis attributes the export job failures to the disk running out of space and mentions log rotation failures, which captures the same underlying mechanism.",
-        "The gold root cause 'disk_log_rotation_gap' refers to a failure in log rotation that leads to disk space exhaustion. The agent's hypothesis attributes the export job failures to the disk running out of space, mentioning log rotation failures as a contributing factor. Both identify the same underlying mechanism of disk exhaustion caused by a log rotation issue.",
-        "The gold root cause 'disk_log_rotation_gap' refers to a failure in log rotation that leads to disk space exhaustion. The agent's hypothesis attributes the export job failures to the disk running out of space and mentions log rotation failures, which captures the same underlying mechanism."
+        "The hypothesis states that the failure is due to the disk being out of space, which matches the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric, even though it also mentions log rotation failures.",
+        "The hypothesis states that the disk/volume has run out of space, which is the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric, even though it does not explicitly identify the log rotation failure mechanism.",
+        "The hypothesis states that the failure is due to the disk being out of space, which matches the technical condition implied by the gold root cause `disk_log_rotation_gap`. Naming the disk-full condition satisfies the rubric, even though it does not explicitly mention the log rotation failure."
       ],
       "error": null
     },
@@ -536,9 +538,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent correctly identifies that the reporting service hangs due to exhaustion of the database connection pool, which aligns with the gold root cause label 'db_connection_pool_exhaustion'. The additional details about ConnectionPoolTimeoutException and request timeouts do not change the underlying cause.",
-        "The agent correctly identifies that the reporting service hangs due to exhaustion of the database connection pool, which aligns with the gold root cause slug 'db_connection_pool_exhaustion'. The additional details about ConnectionPoolTimeoutException and request timeouts do not change the underlying cause.",
-        "The agent correctly identifies that the reporting service hangs due to exhaustion of the database connection pool, which aligns with the gold root cause label 'db_connection_pool_exhaustion'. The additional details about ConnectionPoolTimeoutException and request timeouts do not change the underlying cause."
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang.",
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang.",
+        "The hypothesis explicitly states that the database connection pool is exhausted, which matches the gold root cause `db_connection_pool_exhaustion`. It correctly identifies the technical condition causing the service hang."
       ],
       "error": null
     },
@@ -556,9 +558,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the latency and rising memory usage to the Redis cache growing beyond its limits, which matches the gold root cause of memory cache overgrowth. Both identify excessive cache memory consumption as the underlying issue.",
-        "The hypothesis attributes the latency and rising memory usage to the Redis cache growing beyond its limits, which directly corresponds to the 'memory_cache_overgrowth' root cause. The additional details about OOM errors and fallback behavior do not change the underlying mechanism.",
-        "The hypothesis attributes the latency and rising memory usage to the Redis cache growing beyond its limits, which matches the gold root cause of memory cache overgrowth. The additional details about OOM errors and maxmemory limits are consistent extensions of the same underlying issue."
+        "The hypothesis states that the Redis cache exceeds its maxmemory limit, which directly describes the cache overgrowth condition indicated by the gold root cause `memory_cache_overgrowth`. This matches the underlying technical condition despite added detail about OOM errors.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended size, causing performance issues. The agent\u2019s hypothesis identifies that the Redis cache exceeded its maxmemory limit, leading to OOM errors and cache fallbacks, which directly describes the same overgrowth condition. Thus, the hypothesis correctly captures the underlying root\u2011cause condition.",
+        "The gold slug `memory_cache_overgrowth` denotes that the cache grew beyond its intended size, causing performance degradation. The agent\u2019s hypothesis identifies that the Redis cache exceeded its maxmemory limit, leading to OOM errors, cache fallbacks, and rising memory usage, which directly describes the same overgrown cache condition."
       ],
       "error": null
     },
@@ -576,9 +578,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the failures to the ingress service reaching its capacity (max\u2011connections limit) during batch windows, which directly corresponds to the ingress queue becoming exhausted. Both describe the same underlying network ingress saturation causing gateway errors.",
-        "The gold cause points to the ingress network queue being exhausted. The agent attributes the failures to the ingress service hitting its max\u2011connections limit during batch windows, which is effectively a queue/exhaustion condition causing gateway errors. Thus the underlying mechanism matches.",
-        "The hypothesis attributes the failures to the ingress service reaching its connection limit and queue saturation during batch windows, which aligns with the gold cause of network ingress queue exhaustion. Both describe the same underlying mechanism of ingress queue overload."
+        "The hypothesis states that the ingress service hits its max\u2011connections limit during batch windows, leading to connection resets and gateway errors. This describes the same technical condition as the gold root cause\u2014exhaustion of the network ingress queue.",
+        "The hypothesis states that the ingress service reaches its max\u2011connections limit, leading to connection resets and gateway errors. This matches the gold root cause of network_ingress_queue_exhaustion, which describes the ingress queue being exhausted. Both identify the same technical condition of ingress capacity being exceeded.",
+        "The hypothesis states that the ingress service reaches its max\u2011connections limit, leading to connection resets and gateway errors. This directly describes the condition of the ingress queue being exhausted, which matches the gold root cause `network_ingress_queue_exhaustion`. The wording differs but the underlying technical condition is the same."
       ],
       "error": null
     },
@@ -596,9 +598,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis points to a misconfigured readiness probe that signals the pod as healthy before the application has warmed up, which aligns with the gold root cause of a health\u2011check misconfiguration during deployment.",
-        "The hypothesis points to a misconfigured readiness probe that signals the pod as healthy before it has finished warming up, which aligns with the gold cause of a health\u2011check misconfiguration during deployment.",
-        "The hypothesis points to a misconfigured readiness/health check that triggers traffic routing before the application has warmed up, which matches the gold cause of a deployment health\u2011check misconfiguration."
+        "The hypothesis points to readiness probes (health checks) being misaligned with the application warm\u2011up, causing early traffic routing and errors. This aligns with the gold root cause of a health\u2011check misconfiguration during deployment.",
+        "The hypothesis pinpoints that the readiness probes are triggering too early (before the app has warmed up), causing traffic routing failures. This directly corresponds to a health\u2011check misconfiguration during deployment, which is the gold root\u2011cause slug `deploy_healthcheck_misconfiguration`.",
+        "The hypothesis pinpoints that the readiness probes are misbehaving due to premature traffic routing before the application warm\u2011up, which aligns with the gold root cause of a health\u2011check misconfiguration. It captures the same underlying condition (probe timing/configuration) even though it adds detail about pod initialization."
       ],
       "error": null
     },
@@ -608,17 +610,17 @@
       "gold_root_cause": "disk_log_rotation_gap",
       "hypothesis": "Backup failures are caused by the target volume running out of disk space, triggering \"No space left on device\" errors during backup operations.",
       "hypothesis_source": "raw",
-      "verdict": false,
+      "verdict": true,
       "verdicts": [
-        false,
-        false,
-        false
+        true,
+        true,
+        true
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause 'disk_log_rotation_gap' points to a specific failure in log rotation that eventually fills the disk. The agent only attributes the backup failures to the disk running out of space, without identifying the log rotation gap as the underlying mechanism. Thus, the hypothesis does not capture the same root cause.",
-        "The gold root cause 'disk_log_rotation_gap' points to a failure in log rotation that eventually fills the disk. The agent only attributes the failures to the disk running out of space, without identifying the log rotation gap that caused the space exhaustion. Thus the underlying mechanism differs.",
-        "The gold root cause 'disk_log_rotation_gap' points to a specific issue with log rotation leaving a gap that eventually fills the disk. The agent's hypothesis only attributes the failures to the volume running out of space, without identifying the log rotation gap as the underlying mechanism. Thus it does not capture the same root cause."
+        "The hypothesis identifies the technical condition of the disk being full, which is the observable root-cause condition supported by the ticket. This matches the gold root cause `disk_log_rotation_gap`, where the underlying mechanism (log rotation failure) leads to a full disk. Naming the disk-full condition is sufficient per the rubric.",
+        "The hypothesis identifies the immediate technical condition\u2014disk space exhaustion on the target volume\u2014that aligns with the gold root cause of a disk filling due to a log rotation gap. Naming the disk-full condition satisfies the rubric, even though it does not explicitly mention the log rotation failure.",
+        "The gold root cause `disk_log_rotation_gap` refers to a log rotation failure that ultimately caused the disk to fill. The agent's hypothesis identifies the technical condition of the disk being full ('target volume running out of disk space'), which matches the condition supported by the ticket. According to the rubric, naming this condition is sufficient for correctness."
       ],
       "error": null
     },
@@ -636,9 +638,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis explicitly attributes the issue to database connection pool exhaustion, which aligns directly with the gold root cause slug 'db_connection_pool_exhaustion'. The additional details about timeouts and queue backup are consistent extensions of the same underlying cause.",
-        "The hypothesis explicitly attributes the issue to database connection pool exhaustion, which aligns directly with the gold root cause slug 'db_connection_pool_exhaustion'. The additional context about timeouts and queue backup does not change the identified underlying cause.",
-        "The hypothesis explicitly attributes the issue to database connection pool exhaustion, which aligns directly with the gold root cause slug 'db_connection_pool_exhaustion'. The additional context about timeouts and queue backup does not change the identified underlying cause."
+        "The hypothesis explicitly identifies database connection pool exhaustion as the cause of the observed timeouts and queue backup, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly states that the payments service suffers from database connection pool exhaustion, which matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition without needing deeper causal detail.",
+        "The hypothesis explicitly states that the payments service suffers from database connection pool exhaustion, which matches the gold root cause slug `db_connection_pool_exhaustion`. It correctly identifies the technical condition, even though it adds details about timeouts and queue backup."
       ],
       "error": null
     },
@@ -648,17 +650,17 @@
       "gold_root_cause": "network_ingress_queue_exhaustion",
       "hypothesis": "Ingress proxy is failing to establish upstream connections under load, causing upstream connect errors and resulting in dashboard timeouts",
       "hypothesis_source": "raw",
-      "verdict": true,
+      "verdict": false,
       "verdicts": [
-        true,
-        true,
+        false,
+        false,
         false
       ],
-      "agreement": 0.6666666666666666,
+      "agreement": 1.0,
       "reasonings": [
-        "The hypothesis points to the ingress proxy being unable to establish upstream connections under load, which aligns with the gold cause of the ingress network queue being exhausted and unable to handle the burst of connections.",
-        "The hypothesis attributes the timeouts to the ingress proxy being unable to establish upstream connections under load, which is a direct manifestation of the ingress queue being exhausted. Both describe the same underlying mechanism of ingress capacity being exceeded, just phrased differently.",
-        "The gold root cause specifies that the ingress network queue is exhausted, whereas the agent's hypothesis attributes the timeout to the ingress proxy failing to establish upstream connections under load. While related, the hypothesis points to a proxy connection failure rather than explicitly identifying queue exhaustion as the underlying mechanism."
+        "The gold root cause is the exhaustion of the ingress network queue, a specific technical condition. The hypothesis describes a failure to establish upstream connections under load, which is a symptom rather than naming the queue exhaustion condition. It does not identify the same underlying condition, so it is considered a different mechanism.",
+        "The gold root cause is the exhaustion of the ingress network queue, a specific technical condition. The hypothesis describes upstream connection failures under load without mentioning queue exhaustion, focusing on a symptom rather than the underlying queue condition, thus identifying a different mechanism.",
+        "The gold root cause is the exhaustion of the ingress queue, a specific technical condition. The hypothesis attributes the issue to the ingress proxy failing to establish upstream connections under load, which describes a different mechanism rather than naming the queue exhaustion condition. Therefore it does not identify the same underlying root\u2011cause condition."
       ],
       "error": null
     },
@@ -676,9 +678,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent correctly identifies that the checkout service's database connection pool is exhausted, which matches the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about cascading errors does not change the underlying cause.",
-        "The agent correctly identifies that the checkout service's database connection pool is exhausted, which matches the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about cascading errors does not change the underlying cause.",
-        "The agent correctly identifies that the checkout service's database connection pool is exhausted, which matches the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about cascading errors does not change the underlying cause."
+        "The hypothesis explicitly states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause label `db_connection_pool_exhaustion`. This identifies the same technical condition, satisfying the rubric.",
+        "The hypothesis states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause slug `db_connection_pool_exhaustion`. Both identify the same technical condition, despite any additional context about cascading errors.",
+        "The hypothesis explicitly states that the checkout service's database connection pool is exhausted, which directly matches the gold root cause `db_connection_pool_exhaustion`. This identifies the same technical condition, satisfying the rubric."
       ],
       "error": null
     },
@@ -696,9 +698,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis pinpoints that the recommendation service's cache memory usage has grown beyond its configured limit, causing out-of-memory errors. This directly corresponds to the gold root cause 'memory_cache_overgrowth', which denotes excessive growth of a memory cache.",
-        "The hypothesis pinpoints that the recommendation service's cache memory usage has grown beyond its configured limit, causing out-of-memory errors. This directly corresponds to the gold root cause 'memory_cache_overgrowth', which denotes excessive growth of a memory cache.",
-        "The hypothesis pinpoints that the recommendation service's cache memory usage has grown beyond its configured limit, causing out-of-memory errors. This directly corresponds to the gold root cause 'memory_cache_overgrowth', which denotes excessive growth of a memory cache."
+        "The gold root cause 'memory_cache_overgrowth' refers to excessive growth of a cache's memory usage. The agent's hypothesis identifies that the recommendation service's cache memory usage exceeds its maxmemory limit, causing OOM errors. This directly names the same technical condition of cache memory overgrowth, satisfying the rubric.",
+        "The gold root cause 'memory_cache_overgrowth' denotes that the cache's memory usage grew beyond its limits, causing issues. The agent's hypothesis explicitly states that the recommendation service's cache memory usage exceeds the configured maxmemory limit, leading to OOM errors. This directly identifies the same technical condition of cache memory overgrowth.",
+        "The hypothesis identifies that the recommendation service's cache memory usage has grown beyond its limit, causing out-of-memory errors. This directly matches the gold root cause of memory cache overgrowth, despite different wording."
       ],
       "error": null
     },
@@ -716,9 +718,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent identifies that the shared ingress layer is saturated, leading to upstream connection errors and gateway failures. This aligns with the gold root cause of network_ingress_queue_exhaustion, which describes queue saturation at the ingress layer.",
-        "The agent identifies that the shared ingress layer is saturated, leading to upstream connection errors and gateway failures. This aligns with the gold root cause of network_ingress_queue_exhaustion, which describes queue saturation at the ingress layer.",
-        "The agent identifies that the shared ingress layer is saturated, leading to upstream connection errors and gateway failures. This aligns with the gold root cause of network_ingress_queue_exhaustion, which describes queue saturation at the ingress network."
+        "The hypothesis states that the shared ingress layer is saturated, which directly corresponds to the gold root cause of network ingress queue exhaustion. Both describe the same technical condition of queue saturation causing downstream errors.",
+        "The hypothesis states that the shared ingress layer is saturated, which directly corresponds to the gold root cause of network_ingress_queue_exhaustion (queue exhaustion). Both identify the same technical condition of ingress queue saturation causing the observed errors.",
+        "The hypothesis states that the shared ingress layer is saturated, which directly corresponds to the gold root cause of network ingress queue exhaustion. Both describe the same technical condition of the ingress queue being full, despite differences in phrasing."
       ],
       "error": null
     },
@@ -736,9 +738,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis pinpoints a readiness probe misconfiguration causing the health check failure, which aligns with the gold root cause of a deployment health check misconfiguration. The added details about Service C and CrashLoopBackOff do not change the underlying cause.",
-        "The hypothesis pinpoints a readiness probe misconfiguration in Service C that causes its health check to fail during deployment, which directly corresponds to the gold root cause of a health check (readiness probe) misconfiguration.",
-        "The hypothesis pinpoints a readiness probe misconfiguration in Service C that causes its health check to fail during deployment, which directly corresponds to the gold root cause of a health check (readiness probe) misconfiguration."
+        "The hypothesis pinpoints a readiness probe misconfiguration that leads to the service's health check failure, which aligns with the gold root cause of a healthcheck misconfiguration. The wording and added details do not change the identified underlying condition.",
+        "The hypothesis pinpoints a readiness probe misconfiguration that leads to the service's health check failure, which aligns with the gold root cause of a healthcheck misconfiguration. The wording and added details do not change the identified underlying condition.",
+        "The hypothesis pinpoints a readiness probe misconfiguration that leads to health check failure, which matches the gold root cause of a deployment healthcheck misconfiguration. The wording is more detailed but identifies the same underlying condition."
       ],
       "error": null
     },
@@ -756,9 +758,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis pinpoints a mismatched or invalid shared signing key used by both the mobile gateway and partner API, which directly corresponds to the gold root cause 'auth_signing_key_mismatch'. The wording differences are superficial and do not change the identified underlying mechanism.",
-        "The hypothesis pinpoints a mismatched or invalid shared signing key as the cause of login failures across both entry points, which directly aligns with the gold root cause label 'auth_signing_key_mismatch'. The wording differences are superficial and do not change the identified underlying mechanism.",
-        "The hypothesis explicitly attributes the login failures to a mismatched or invalid shared signing key used by both entry points, which aligns directly with the gold root cause of an auth signing key mismatch."
+        "The hypothesis explicitly identifies a mismatched shared signing key as the cause of the login failures, which directly aligns with the gold root cause `auth_signing_key_mismatch`. The wording and detail are consistent with the underlying condition.",
+        "The hypothesis explicitly identifies a mismatched shared signing key as the cause of the login failures, which aligns directly with the gold root cause `auth_signing_key_mismatch`. It names the same technical condition, satisfying the rubric.",
+        "The hypothesis explicitly identifies a mismatched or invalid shared signing key as the cause of the login failures, which directly corresponds to the gold root cause `auth_signing_key_mismatch`. The wording aligns with the technical condition, satisfying the rubric."
       ],
       "error": null
     },
@@ -768,17 +770,17 @@
       "gold_root_cause": "disk_log_rotation_gap",
       "hypothesis": "Disk space exhaustion on the ingestion host is causing write failures across the analytics pipeline, archival job, and ingestion service",
       "hypothesis_source": "raw",
-      "verdict": false,
+      "verdict": true,
       "verdicts": [
-        false,
-        false,
-        false
+        true,
+        true,
+        true
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause specifies a log rotation gap that leads to disk space exhaustion, whereas the agent only identifies the exhaustion itself without pinpointing the missing log rotation as the underlying mechanism.",
-        "The gold root cause specifies a disk_log_rotation_gap, i.e., a failure to rotate logs that leads to disk exhaustion. The agent only identifies disk space exhaustion as the cause, without linking it to the log rotation gap, thus pointing to a different underlying mechanism.",
-        "The gold root cause specifies a log rotation gap as the underlying mechanism leading to disk space exhaustion. The agent's hypothesis only identifies disk space exhaustion itself, without attributing it to a rotation gap, thus it does not capture the same underlying cause."
+        "The hypothesis identifies disk space exhaustion (disk full) on the ingestion host, which is the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk full condition satisfies the rubric, even though it does not mention the log rotation failure.",
+        "The hypothesis identifies the technical condition of disk space exhaustion on the ingestion host, which is the observable outcome of the gold root cause `disk_log_rotation_gap`. According to the rubric, naming this condition is sufficient even though the deeper mechanism (log rotation failure) is not mentioned.",
+        "The hypothesis identifies disk space exhaustion on the ingestion host, which is the technical condition underlying the gold root cause `disk_log_rotation_gap`. Naming the disk full condition satisfies the rubric, even though it does not mention the log rotation failure."
       ],
       "error": null
     },
@@ -796,9 +798,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis pinpoints exhaustion of the order service's database connection pool as the cause of latency, which directly matches the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about the ConnectionPoolTimeoutException does not change the underlying mechanism.",
-        "The hypothesis pinpoints exhaustion of the order service's database connection pool as the cause of latency, which directly matches the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about the ConnectionPoolTimeoutException does not change the underlying mechanism.",
-        "The hypothesis pinpoints exhaustion of the order service's database connection pool as the cause of latency, which directly aligns with the gold root cause label 'db_connection_pool_exhaustion'. The additional detail about the ConnectionPoolTimeoutException and downstream impact does not change the underlying mechanism."
+        "The hypothesis explicitly states that the order service's database connection pool is exhausted, which directly matches the gold root cause condition of db_connection_pool_exhaustion. This aligns with the rubric that naming the technical condition is sufficient.",
+        "The hypothesis explicitly identifies that the order service's database connection pool is exhausted, which matches the gold root cause condition of db_connection_pool_exhaustion. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis explicitly states that the order service's database connection pool is exhausted, which directly matches the gold root cause condition of `db_connection_pool_exhaustion`. This identifies the same technical condition, satisfying the rubric."
       ],
       "error": null
     },
@@ -816,9 +818,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the slowdown to the cache exceeding its memory limit and evicting entries, which directly matches the gold root cause of memory cache overgrowth. Both identify excessive cache memory usage as the underlying mechanism.",
-        "The hypothesis attributes the slowdown to the cache exceeding its memory limit and evicting entries, which matches the gold root cause of memory cache overgrowth. Both identify excessive cache memory usage as the underlying mechanism.",
-        "The hypothesis attributes the slowdown to the lookup service cache exceeding its memory limit and evicting entries, which directly matches the gold root cause of memory cache overgrowth. Both describe the same underlying mechanism of cache size exceeding capacity."
+        "The gold root cause 'memory_cache_overgrowth' denotes that the cache grew beyond its intended memory limits, leading to performance degradation. The agent's hypothesis explicitly states that the lookup service cache exceeded its configured maxmemory limit, causing OOM errors and evictions that increase latency. This directly matches the same underlying condition.",
+        "The hypothesis states that the lookup service cache exceeded its configured maxmemory limit, which directly describes a memory cache overgrowth condition. This matches the gold root cause slug `memory_cache_overgrowth`, despite added detail about OOM errors and evictions.",
+        "The gold root cause `memory_cache_overgrowth` denotes that the cache grew beyond its intended limits, leading to performance degradation. The agent's hypothesis explicitly states that the lookup service cache exceeded its configured maxmemory limit, causing OOM errors and evictions that increase latency. This directly identifies the same underlying condition, just with more detail."
       ],
       "error": null
     },
@@ -836,9 +838,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the mid\u2011handshake drops to a saturated connection queue and exhaustion of upstream connections at the ingress, which aligns with the gold cause of network_ingress_queue_exhaustion. The wording differs but the underlying mechanism is the same.",
-        "The hypothesis attributes the mid\u2011handshake drops to ingress connection\u2011queue saturation and exhaustion during peak traffic, which aligns with the gold root cause of network_ingress_queue_exhaustion. Both identify the same underlying mechanism of the ingress queue being full.",
-        "The hypothesis attributes the failures to ingress connection\u2011queue saturation and exhaustion during peak traffic, which aligns with the gold cause of network ingress queue exhaustion. Both describe the same underlying mechanism of the ingress queue being full."
+        "The hypothesis attributes the mid\u2011handshake drops to connection\u2011queue saturation and upstream connection exhaustion during peak traffic, which directly describes the ingress queue being exhausted. This matches the gold root cause of network_ingress_queue_exhaustion. The wording differs but the identified condition is the same.",
+        "The hypothesis states that ingress experiences connection\u2011queue saturation and upstream connection exhaustion during peak traffic, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`.",
+        "The hypothesis states that ingress experiences connection\u2011queue saturation and upstream connection exhaustion during peak traffic, which directly describes the condition of the ingress queue being exhausted. This aligns with the gold root cause `network_ingress_queue_exhaustion`."
       ],
       "error": null
     },
@@ -856,9 +858,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The gold root cause indicates a misconfiguration of the deployment health check. The agent's hypothesis points to a misconfigured readiness/liveness probe (e.g., short initialDelaySeconds or timeoutSeconds), which is precisely a health check misconfiguration causing the startup failures. Thus, both identify the same underlying cause.",
-        "The gold root cause indicates a misconfiguration of the deployment health check. The agent's hypothesis points to a misconfigured readiness/liveness probe (e.g., short initialDelaySeconds or timeoutSeconds), which is precisely a health check misconfiguration. Thus, both identify the same underlying cause.",
-        "The agent attributes the failure to a misconfiguration of the readiness/liveness probe parameters, which directly aligns with the gold root cause of a health check misconfiguration during deployment."
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the health check. The agent's hypothesis explicitly states that the readiness/liveness probe is misconfigured (timing parameters too short), which directly identifies the same technical condition.",
+        "The gold root cause `deploy_healthcheck_misconfiguration` refers to a misconfiguration of the health check. The agent's hypothesis explicitly states that the readiness/liveness probe is misconfigured (timing parameters too short), which directly identifies the same technical condition.",
+        "The hypothesis pinpoints a misconfiguration of the readiness/liveness probe (e.g., initialDelaySeconds or timeoutSeconds) that leads to immediate health check failures. This directly matches the gold root cause of a healthcheck misconfiguration, even though wording differs."
       ],
       "error": null
     },
@@ -876,9 +878,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis describes a mismatch of signing keys across auth\u2011api nodes after a credential refresh, which directly corresponds to the 'auth_signing_key_mismatch' root cause. The added detail about propagation and node-specific failures does not change the underlying mechanism.",
-        "The hypothesis describes a mismatch of signing keys across auth\u2011api nodes after a credential refresh, which directly corresponds to the 'auth_signing_key_mismatch' root cause. The details about propagation and intermittent failures are consistent with the same underlying issue.",
-        "The hypothesis describes a mismatch of signing keys across auth\u2011api nodes after a credential refresh, which directly aligns with the gold root cause 'auth_signing_key_mismatch'. The additional detail about propagation does not change the underlying cause."
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a mismatch of signing keys across nodes, which aligns with the gold root cause `auth_signing_key_mismatch`.",
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a signing key mismatch, which matches the gold root cause `auth_signing_key_mismatch`. The wording and detail are consistent with the required condition.",
+        "The hypothesis states that a new signing key was not propagated to all auth\u2011api nodes, leading to signature verification failures on nodes with outdated keys. This directly describes a mismatch of signing keys across nodes, which aligns with the gold root cause `auth_signing_key_mismatch`."
       ],
       "error": null
     },
@@ -896,9 +898,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "Both the hypothesis and the gold root cause point to logs filling the disk due to a failure in log rotation, leading to a full volume and write errors. The agent's description of excessive log generation causing space exhaustion matches the underlying mechanism of a disk log rotation gap.",
-        "The agent identifies that the disk filled up because of excessive log output, which is the same underlying issue captured by the 'disk_log_rotation_gap' root cause (logs not being rotated and thus consuming all space). The wording differs but the mechanism matches.",
-        "The gold root cause 'disk_log_rotation_gap' indicates that logs were not being rotated, allowing them to accumulate and fill the disk. The agent's hypothesis attributes the write failures to the volume running out of space because of excessive log generation, which is precisely the consequence of a log rotation gap. Thus, both identify the same underlying mechanism."
+        "The hypothesis states that the volume ran out of space due to excessive log generation, which matches the technical condition of a full disk caused by a log rotation gap. It correctly identifies the same underlying root-cause condition as the gold slug.",
+        "The hypothesis states that the volume ran out of space due to excessive log generation, which matches the technical condition of a full disk caused by a log rotation gap. This aligns with the gold root cause, even though it does not explicitly mention the log rotation failure.",
+        "The hypothesis states that the volume ran out of space due to excessive log generation, which matches the technical condition of a full disk caused by a log rotation gap. This aligns with the gold root cause, even though it does not explicitly mention the log rotation failure."
       ],
       "error": null
     },
@@ -916,9 +918,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The agent correctly identifies that the checkout failures stem from the database connection pool being exhausted due to a low limit on simultaneous handles, which matches the gold root cause of db_connection_pool_exhaustion.",
-        "The agent correctly identifies that the checkout failures stem from the database connection pool being exhausted due to a low limit on simultaneous handles, which matches the gold root cause of db_connection_pool_exhaustion.",
-        "The agent correctly identifies that the checkout failures stem from the database connection pool being exhausted due to a low limit on simultaneous handles, which matches the gold root cause of db_connection_pool_exhaustion."
+        "The hypothesis explicitly states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. The wording aligns with the technical condition, satisfying the rubric.",
+        "The hypothesis states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. Both identify the same technical condition of connection pool exhaustion, satisfying the rubric.",
+        "The hypothesis explicitly states that the database connection pool is exhausted due to a low limit on simultaneous handles, which directly matches the gold root cause `db_connection_pool_exhaustion`. Both identify the same technical condition."
       ],
       "error": null
     },
@@ -936,9 +938,9 @@
       ],
       "agreement": 1.0,
       "reasonings": [
-        "The hypothesis attributes the issue to the fast\u2011lookup cache exceeding its memory limits and evicting entries, which directly corresponds to the gold root cause of memory cache overgrowth. The wording differs but the underlying mechanism is the same.",
-        "The hypothesis attributes the issue to the fast\u2011lookup cache exceeding its memory limits and evicting entries, which directly corresponds to the gold root cause of memory cache overgrowth. The wording differs but the underlying mechanism is the same.",
-        "The hypothesis attributes the issue to the fast\u2011lookup cache exceeding its memory limit and evicting entries, which directly corresponds to the gold root cause of memory cache overgrowth. The wording differs but the underlying mechanism is the same."
+        "The hypothesis states that the fast\u2011lookup cache exceeded its configured memory limit, leading to eviction and performance issues. This directly corresponds to the gold root cause of memory cache overgrowth, which is the condition of the cache growing beyond its capacity.",
+        "The gold root cause 'memory_cache_overgrowth' refers to the cache growing beyond its intended memory capacity. The agent's hypothesis states that the fast\u2011lookup cache exceeded its maxmemory limit, leading to OOM errors and eviction, which directly describes the same overgrowth condition. Thus, the hypothesis correctly identifies the underlying root\u2011cause condition.",
+        "The hypothesis states that the fast\u2011lookup cache exceeded its maxmemory limit, leading to eviction and performance issues. This directly describes the cache overgrowth condition captured by the gold slug `memory_cache_overgrowth`. The wording adds detail but does not change the underlying root\u2011cause."
       ],
       "error": null
     }

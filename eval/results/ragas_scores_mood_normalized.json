@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "base_url": "https://inference.baseten.co/v1",
+    "model": "openai/gpt-oss-120b"
+  },
+  "config": {
+    "subset": 10,
+    "gap_set": false,
+    "timeout": 1200,
+    "max_workers": 8,
+    "strictness": 1,
+    "n_tickets": 10,
+    "metrics_selected": [
+      "faithfulness",
+      "answer_relevancy"
+    ],
+    "metrics_dropped": [
+      "llm_context_precision_with_reference",
+      "context_recall"
+    ]
+  },
+  "metrics": {
+    "faithfulness": {
+      "mean": 0.8654292929292928,
+      "n_scored": 10,
+      "n_total": 10,
+      "n_nan": 0,
+      "complete": true
+    },
+    "answer_relevancy": {
+      "mean": 0.41529705843285847,
+      "n_scored": 10,
+      "n_total": 10,
+      "n_nan": 0,
+      "complete": true
+    }
+  },
+  "usage": {
+    "captured": true,
+    "prompt_tokens": 25518,
+    "completion_tokens": 23615,
+    "total_tokens": 49133,
+    "llm_calls": 30
+  },
+  "per_ticket": [
+    {
+      "ticket_id": "T010",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.4347955633458422
+    },
+    {
+      "ticket_id": "T018",
+      "category": "easy",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.33466397222153865
+    },
+    {
+      "ticket_id": "T020",
+      "category": "easy",
+      "faithfulness": 0.8333333333333334,
+      "answer_relevancy": 0.6103661723142988
+    },
+    {
+      "ticket_id": "T023",
+      "category": "easy",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.3547444297730969
+    },
+    {
+      "ticket_id": "T030",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.3036770136769128
+    },
+    {
+      "ticket_id": "T031",
+      "category": "multi_step",
+      "faithfulness": 0.8181818181818182,
+      "answer_relevancy": 0.4286009193409915
+    },
+    {
+      "ticket_id": "T034",
+      "category": "multi_step",
+      "faithfulness": 0.7777777777777778,
+      "answer_relevancy": 0.4388505729064107
+    },
+    {
+      "ticket_id": "T036",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.35698674191999014
+    },
+    {
+      "ticket_id": "T043",
+      "category": "tool_heavy",
+      "faithfulness": 0.625,
+      "answer_relevancy": 0.47685807973411426
+    },
+    {
+      "ticket_id": "T045",
+      "category": "tool_heavy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.4134271190953886
+    }
+  ]
+}

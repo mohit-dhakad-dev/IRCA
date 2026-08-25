@@ -1,0 +1,324 @@
+{
+  "schema_version": 1,
+  "provider": {
+    "base_url": "https://inference.baseten.co/v1",
+    "model": "openai/gpt-oss-120b"
+  },
+  "config": {
+    "subset": 46,
+    "gap_set": true,
+    "timeout": 1200,
+    "max_workers": 8,
+    "strictness": 1,
+    "n_tickets": 46,
+    "metrics_selected": [
+      "faithfulness",
+      "answer_relevancy"
+    ],
+    "metrics_dropped": [
+      "llm_context_precision_with_reference",
+      "context_recall"
+    ]
+  },
+  "metrics": {
+    "faithfulness": {
+      "mean": 0.6982911412259238,
+      "n_scored": 46,
+      "n_total": 46,
+      "n_nan": 0,
+      "complete": true
+    },
+    "answer_relevancy": {
+      "mean": 0.47229907376456043,
+      "n_scored": 46,
+      "n_total": 46,
+      "n_nan": 0,
+      "complete": true
+    }
+  },
+  "usage": {
+    "captured": true,
+    "prompt_tokens": 118586,
+    "completion_tokens": 99940,
+    "total_tokens": 218526,
+    "llm_calls": 138
+  },
+  "per_ticket": [
+    {
+      "ticket_id": "T001",
+      "category": "easy",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.3759084374831806
+    },
+    {
+      "ticket_id": "T002",
+      "category": "easy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.6898959835675856
+    },
+    {
+      "ticket_id": "T003",
+      "category": "easy",
+      "faithfulness": 0.6666666666666666,
+      "answer_relevancy": 0.5517243937350833
+    },
+    {
+      "ticket_id": "T004",
+      "category": "easy",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.5320955604673857
+    },
+    {
+      "ticket_id": "T006",
+      "category": "multi_step",
+      "faithfulness": 0.4,
+      "answer_relevancy": 0.5485949994404784
+    },
+    {
+      "ticket_id": "T007",
+      "category": "multi_step",
+      "faithfulness": 0.875,
+      "answer_relevancy": 0.6311783823349478
+    },
+    {
+      "ticket_id": "T008",
+      "category": "multi_step",
+      "faithfulness": 0.5714285714285714,
+      "answer_relevancy": 0.43896660191629944
+    },
+    {
+      "ticket_id": "T009",
+      "category": "multi_step",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.7112907928760803
+    },
+    {
+      "ticket_id": "T010",
+      "category": "multi_step",
+      "faithfulness": 0.8571428571428571,
+      "answer_relevancy": 0.3600517592673725
+    },
+    {
+      "ticket_id": "T011",
+      "category": "tool_heavy",
+      "faithfulness": 0.8571428571428571,
+      "answer_relevancy": 0.5662109563758188
+    },
+    {
+      "ticket_id": "T012",
+      "category": "tool_heavy",
+      "faithfulness": 0.8333333333333334,
+      "answer_relevancy": 0.3958106326059104
+    },
+    {
+      "ticket_id": "T013",
+      "category": "tool_heavy",
+      "faithfulness": 0.625,
+      "answer_relevancy": 0.488115283563252
+    },
+    {
+      "ticket_id": "T016",
+      "category": "easy",
+      "faithfulness": 0.7142857142857143,
+      "answer_relevancy": 0.6349329780792471
+    },
+    {
+      "ticket_id": "T017",
+      "category": "easy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.2842478060418222
+    },
+    {
+      "ticket_id": "T018",
+      "category": "easy",
+      "faithfulness": 0.4,
+      "answer_relevancy": 0.41658682281362064
+    },
+    {
+      "ticket_id": "T020",
+      "category": "easy",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.7299256623456107
+    },
+    {
+      "ticket_id": "T021",
+      "category": "easy",
+      "faithfulness": 0.7777777777777778,
+      "answer_relevancy": 0.583329679054616
+    },
+    {
+      "ticket_id": "T022",
+      "category": "easy",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.559437710994946
+    },
+    {
+      "ticket_id": "T023",
+      "category": "easy",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.35133511365609643
+    },
+    {
+      "ticket_id": "T024",
+      "category": "easy",
+      "faithfulness": 0.875,
+      "answer_relevancy": 0.6059164225273571
+    },
+    {
+      "ticket_id": "T026",
+      "category": "multi_step",
+      "faithfulness": 0.25,
+      "answer_relevancy": 0.5655847509866133
+    },
+    {
+      "ticket_id": "T027",
+      "category": "multi_step",
+      "faithfulness": 0.8571428571428571,
+      "answer_relevancy": 0.26764049391498185
+    },
+    {
+      "ticket_id": "T028",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.407125111926882
+    },
+    {
+      "ticket_id": "T030",
+      "category": "multi_step",
+      "faithfulness": 0.8888888888888888,
+      "answer_relevancy": 0.30388823056580977
+    },
+    {
+      "ticket_id": "T031",
+      "category": "multi_step",
+      "faithfulness": 0.0,
+      "answer_relevancy": 0.6068685852008605
+    },
+    {
+      "ticket_id": "T032",
+      "category": "multi_step",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.604761719721275
+    },
+    {
+      "ticket_id": "T033",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.25074180841742355
+    },
+    {
+      "ticket_id": "T034",
+      "category": "multi_step",
+      "faithfulness": 0.4,
+      "answer_relevancy": 0.47666670429776303
+    },
+    {
+      "ticket_id": "T035",
+      "category": "multi_step",
+      "faithfulness": 0.6666666666666666,
+      "answer_relevancy": 0.5431858216013613
+    },
+    {
+      "ticket_id": "T037",
+      "category": "multi_step",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.561278420133202
+    },
+    {
+      "ticket_id": "T038",
+      "category": "multi_step",
+      "faithfulness": 0.4,
+      "answer_relevancy": 0.5364466925794527
+    },
+    {
+      "ticket_id": "T040",
+      "category": "multi_step",
+      "faithfulness": 0.8,
+      "answer_relevancy": 0.5025284547394796
+    },
+    {
+      "ticket_id": "T041",
+      "category": "tool_heavy",
+      "faithfulness": 0.9,
+      "answer_relevancy": 0.6514952681033924
+    },
+    {
+      "ticket_id": "T042",
+      "category": "tool_heavy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.2554788989902458
+    },
+    {
+      "ticket_id": "T043",
+      "category": "tool_heavy",
+      "faithfulness": 0.3333333333333333,
+      "answer_relevancy": 0.3325907356954127
+    },
+    {
+      "ticket_id": "T044",
+      "category": "tool_heavy",
+      "faithfulness": 0.5,
+      "answer_relevancy": 0.4519474213614667
+    },
+    {
+      "ticket_id": "T045",
+      "category": "tool_heavy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.39340777125845017
+    },
+    {
+      "ticket_id": "T046",
+      "category": "tool_heavy",
+      "faithfulness": 0.5,
+      "answer_relevancy": 0.5779694388530043
+    },
+    {
+      "ticket_id": "T047",
+      "category": "tool_heavy",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.6116856790952692
+    },
+    {
+      "ticket_id": "T049",
+      "category": "rag_heavy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.42107677863158277
+    },
+    {
+      "ticket_id": "T050",
+      "category": "rag_heavy",
+      "faithfulness": 0.9090909090909091,
+      "answer_relevancy": 0.26783414933488187
+    },
+    {
+      "ticket_id": "T051",
+      "category": "rag_heavy",
+      "faithfulness": 0.5714285714285714,
+      "answer_relevancy": 0.3895609059633815
+    },
+    {
+      "ticket_id": "T052",
+      "category": "rag_heavy",
+      "faithfulness": 1.0,
+      "answer_relevancy": 0.34553200477991747
+    },
+    {
+      "ticket_id": "T053",
+      "category": "rag_heavy",
+      "faithfulness": 0.7777777777777778,
+      "answer_relevancy": 0.34758846395889775
+    },
+    {
+      "ticket_id": "T054",
+      "category": "rag_heavy",
+      "faithfulness": 0.7142857142857143,
+      "answer_relevancy": 0.48741865883725627
+    },
+    {
+      "ticket_id": "T055",
+      "category": "rag_heavy",
+      "faithfulness": 0.6,
+      "answer_relevancy": 0.1098984450748057
+    }
+  ]
+}

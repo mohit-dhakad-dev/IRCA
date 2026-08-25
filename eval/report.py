@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import statistics
 import subprocess
@@ -32,6 +33,10 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RAW_DIR = REPO_ROOT / "eval" / "results" / "raw"
 DEFAULT_OUT_DIR = REPO_ROOT / "eval" / "results"
 TICKETS_PATH = REPO_ROOT / "data" / "tickets.json"
+
+# Default location Session 9b's artifacts live in -- overridable per call so
+# tests can point at a tmp_path fixture instead.
+DEFAULT_RESULTS_DIR = REPO_ROOT / "eval" / "results"
 
 # The denormalized-ticket fields written into each raw file by
 # eval/run_benchmark.py -- checked against the live data/tickets.json entry
@@ -152,10 +157,41 @@ def _parse_pytest_summary(output: str) -> dict:
     }
 
 
-def run_safety_gate(python: str = "venv/bin/python") -> dict:
+def _default_venv_python() -> str:
+    """Return the default venv interpreter path, as an ABSOLUTE path.
+
+    Why sys.executable: subprocess.run resolves a relative executable name
+    against the PARENT process's cwd and PATH -- NOT against the `cwd=`
+    argument passed to subprocess.run. A relative path like
+    "venv/Scripts/python.exe" is therefore unreliable regardless of
+    cwd=REPO_ROOT, and on Windows this reliably surfaces as
+    "[WinError 2] The system cannot find the file specified" whenever the
+    process's actual working directory isn't the repo root. The interpreter
+    currently running this script (sys.executable) IS the correct venv
+    interpreter by definition, on every platform, with no path guessing --
+    so it is the default. Do not "simplify" this back to a relative path.
+
+    Fall back to a platform-specific absolute path built from REPO_ROOT only
+    if sys.executable is empty/missing, which can happen in some embedded
+    interpreters."""
+    if sys.executable:
+        return sys.executable
+    if os.name == "nt" or sys.platform.startswith("win"):
+        return str(REPO_ROOT / "venv" / "Scripts" / "python.exe")
+    return str(REPO_ROOT / "venv" / "bin" / "python")
+
+
+def run_safety_gate(python: str | None = None) -> dict:
     """Run tests/test_safety.py as a subprocess and return a structured
     verdict. NEVER assumes/hardcodes a result -- if the subprocess itself
     cannot be run, returns status="UNKNOWN" with the reason."""
+    if python is None:
+        python = _default_venv_python()
+    elif not Path(python).is_absolute():
+        # A caller-supplied relative path is just as unreliable as the old
+        # hardcoded default (see _default_venv_python's docstring) -- resolve
+        # it against REPO_ROOT so it stops being silently broken too.
+        python = str(REPO_ROOT / python)
     try:
         proc = subprocess.run(
             [python, "-m", "pytest", "tests/test_safety.py", "-q"],
@@ -248,6 +284,183 @@ def _rate(numer: int, denom: int) -> float | None:
 
 
 # --------------------------------------------------------------------------
+# Session 9b: hypothesis_semantic / judge validation / RAGAS diagnostic
+# --------------------------------------------------------------------------
+#
+# These loaders FAIL LOUDLY on a malformed file (json.loads raises straight
+# through -- never swallowed) but treat a MISSING file as "this section is
+# not available" and return None, which every caller below renders as an
+# explicit "NOT COMPUTED" line rather than silently omitting the section.
+
+
+def load_optional_json(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def compute_hypothesis_semantic(results_dir: Path) -> dict:
+    """Load hypothesis_semantic_v3.json and shape it into the headline
+    Task Success block. Returns a dict with status="NOT COMPUTED" and a
+    reason if the file is missing -- never the string "PENDING"."""
+    path = results_dir / "hypothesis_semantic_v3.json"
+    data = load_optional_json(path)
+    if data is None:
+        return {"status": "NOT COMPUTED", "reason": f"{path.name} not found"}
+
+    summary = data["summary"]
+    config = data["config"]
+    per_ticket = data["per_ticket"]
+
+    n_unanimous = sum(1 for t in per_ticket if t.get("agreement") == 1.0)
+    n_split = sum(1 for t in per_ticket if t.get("agreement") is not None and t.get("agreement") < 1.0)
+
+    return {
+        "n_correct": summary["n_correct"],
+        "n_judged": summary["n_judged"],
+        "n_failed": summary["n_failed"],
+        "rate": summary["semantic_correct_rate"],
+        "rubric_version": config["rubric_version"],
+        "repeats": config["repeats"],
+        "failure_decomposition": {
+            "semantic_only": summary["n_fail_semantic_only"],
+            "evidence_only": summary["n_fail_evidence_only"],
+            "both": summary["n_fail_both"],
+        },
+        "judge_stability": {"n_unanimous": n_unanimous, "n_split": n_split},
+    }
+
+
+def load_judge_agreement(results_dir: Path, filename: str = "judge_agreement_report.json") -> dict:
+    """Load a judge_agreement_report.*.json file. Returns status="NOT
+    COMPUTED" with a reason if missing."""
+    path = results_dir / filename
+    data = load_optional_json(path)
+    if data is None:
+        return {"status": "NOT COMPUTED", "reason": f"{path.name} not found"}
+    return data
+
+
+def _paired_answer_relevancy_shift(gap46: dict, mood: dict) -> float | None:
+    """Mean(after) - mean(before) over exactly the tickets present in BOTH
+    files, paired by ticket_id. Excludes any mood ticket without a gap46
+    baseline (e.g. T036) rather than diluting the shift with unpaired
+    tickets or comparing the two files' overall means."""
+    ar_gap = {r["ticket_id"]: r["answer_relevancy"] for r in gap46["per_ticket"]}
+    before, after = [], []
+    for row in mood["per_ticket"]:
+        b = ar_gap.get(row["ticket_id"])
+        if b is None:
+            continue
+        before.append(b)
+        after.append(row["answer_relevancy"])
+    if not before:
+        return None
+    return statistics.mean(after) - statistics.mean(before)
+
+
+def build_ragas_diagnostic(results_dir: Path) -> dict:
+    """Assemble the evidence behind the three RAGAS failure mechanisms.
+    Every sub-source is loaded independently -- a missing file degrades only
+    its own subsection to "NOT COMPUTED", never the whole block."""
+    gap46 = load_optional_json(results_dir / "ragas_scores_gap46.json")
+    subset8 = load_optional_json(results_dir / "ragas_scores_subset8.json")
+    subset3 = load_optional_json(results_dir / "ragas_scores_subset3.json")
+    subset3_mw16 = load_optional_json(results_dir / "ragas_scores_subset3_mw16.json")
+    mood = load_optional_json(results_dir / "ragas_scores_mood_normalized.json")
+    hyp_v3 = load_optional_json(results_dir / "hypothesis_semantic_v3.json")
+
+    diagnostic: dict = {}
+
+    # (a) context_precision / context_recall degeneracy.
+    if subset8 is not None and subset3 is not None and subset3_mw16 is not None:
+        precision_readings = []
+        for src in (subset3, subset3_mw16, subset8):
+            m = src["metrics"].get("llm_context_precision_with_reference")
+            if m:
+                precision_readings.append(m["mean"])
+        n_precision = (
+            subset3["metrics"]["llm_context_precision_with_reference"]["n_scored"]
+            + subset3_mw16["metrics"]["llm_context_precision_with_reference"]["n_scored"]
+            + subset8["metrics"]["llm_context_precision_with_reference"]["n_scored"]
+        )
+        recall_metric = subset8["metrics"].get("context_recall")
+        diagnostic["context_degeneracy"] = {
+            "context_precision_all_ones": all(round(v, 4) == 1.0 for v in precision_readings),
+            "context_precision_n": n_precision,
+            "context_recall_all_ones": bool(recall_metric and round(recall_metric["mean"], 4) == 1.0),
+            "context_recall_n": recall_metric["n_scored"] if recall_metric else 0,
+            "context_recall_note": (
+                "subset3 and subset3_mw16 returned NaN for context_recall (metric-key bug -- "
+                "they scored llm_context_recall, which came back None/NaN) so they are NOT "
+                "evidence of degeneracy; only subset8's 8 readings are."
+            ),
+        }
+    else:
+        diagnostic["context_degeneracy"] = {
+            "status": "NOT COMPUTED",
+            "reason": "one or more of ragas_scores_subset8.json / subset3.json / subset3_mw16.json not found",
+        }
+
+    # (b) faithfulness / mood confound -- paired before/after table.
+    if mood is not None and gap46 is not None:
+        gap_faithfulness = {r["ticket_id"]: r["faithfulness"] for r in gap46["per_ticket"]}
+        pairs = []
+        for row in mood["per_ticket"]:
+            tid = row["ticket_id"]
+            before = gap_faithfulness.get(tid)
+            after = row["faithfulness"]
+            pairs.append({"ticket_id": tid, "before": before, "after": after})
+        # Paired means only -- a ticket with no gap46 baseline (e.g. T036,
+        # which was never part of the mood experiment) contributes to the
+        # table but must NOT dilute/inflate the before/after means.
+        before_values = [p["before"] for p in pairs if p["before"] is not None]
+        after_values = [p["after"] for p in pairs if p["before"] is not None and p["after"] is not None]
+        diagnostic["faithfulness_mood"] = {
+            "overall_mean": gap46["metrics"]["faithfulness"]["mean"],
+            "overall_n": gap46["metrics"]["faithfulness"]["n_scored"],
+            "pairs": pairs,
+            "mean_before": statistics.mean(before_values) if before_values else None,
+            "mean_after": statistics.mean(after_values) if after_values else None,
+        }
+    else:
+        diagnostic["faithfulness_mood"] = {
+            "status": "NOT COMPUTED",
+            "reason": "ragas_scores_mood_normalized.json or ragas_scores_gap46.json not found",
+        }
+
+    # (c) answer_relevancy / genre mismatch -- correct vs incorrect split.
+    if gap46 is not None and hyp_v3 is not None and mood is not None:
+        ar_by_id = {r["ticket_id"]: r["answer_relevancy"] for r in gap46["per_ticket"]}
+        correct, incorrect = [], []
+        for t in hyp_v3["per_ticket"]:
+            ar = ar_by_id.get(t["ticket_id"])
+            if ar is None:
+                continue
+            (correct if t["verdict"] else incorrect).append(ar)
+        diagnostic["answer_relevancy_genre"] = {
+            "overall_mean": gap46["metrics"]["answer_relevancy"]["mean"],
+            "overall_n": gap46["metrics"]["answer_relevancy"]["n_scored"],
+            "mean_correct": statistics.mean(correct) if correct else None,
+            "n_correct": len(correct),
+            "mean_incorrect": statistics.mean(incorrect) if incorrect else None,
+            "n_incorrect": len(incorrect),
+            # Paired shift over the mood-normalized tickets only (T036 has no
+            # gap46 baseline and is excluded from the pairing) -- NOT the
+            # difference of the two datasets' overall means, which mixes in
+            # tickets that were never part of the mood experiment.
+            "mood_shift": _paired_answer_relevancy_shift(gap46, mood),
+        }
+    else:
+        diagnostic["answer_relevancy_genre"] = {
+            "status": "NOT COMPUTED",
+            "reason": "ragas_scores_gap46.json, hypothesis_semantic_v3.json, or ragas_scores_mood_normalized.json not found",
+        }
+
+    return diagnostic
+
+
+# --------------------------------------------------------------------------
 # Core aggregation
 # --------------------------------------------------------------------------
 
@@ -258,7 +471,10 @@ def build_report(
     safety: dict,
     with_corpus_recall: bool = False,
     rate_card_provider: str | None = None,
+    results_dir: Path | None = None,
 ) -> dict:
+    if results_dir is None:
+        results_dir = DEFAULT_RESULTS_DIR
     raw_results = load_raw_results(raw_dir)
 
     rate_card_label, rate_card = select_rate_card(rate_card_provider)
@@ -333,19 +549,36 @@ def build_report(
     strict_rate = _rate(n_strict_success, n_total)
     gap_n = n_status_success - n_strict_success
 
+    hypothesis_semantic = compute_hypothesis_semantic(results_dir)
+    judge_validation = load_judge_agreement(results_dir)
+    judge_validation_v1 = load_judge_agreement(results_dir, filename="judge_agreement_report.v1.json")
+    hypothesis_semantic_v1 = load_optional_json(results_dir / "hypothesis_semantic.v1.json")
+    ragas_diagnostic = build_ragas_diagnostic(results_dir)
+
+    if isinstance(hypothesis_semantic, dict) and "n_correct" in hypothesis_semantic:
+        semantic_note = (
+            f" Of the {hypothesis_semantic['n_judged']}, {hypothesis_semantic['n_correct']} were "
+            f"judged semantically correct under rubric v{hypothesis_semantic['rubric_version']}."
+        )
+    else:
+        semantic_note = " hypothesis_semantic is NOT COMPUTED -- see Task Success section."
+
     task_success = {
         "task_success_status_only": {"n_success": n_status_success, "n_total": n_total, "rate": status_rate},
         "task_success_strict_lexical": {"n_success": n_strict_success, "n_total": n_total, "rate": strict_rate},
-        "hypothesis_semantic": "PENDING (Session 9b)",
+        "hypothesis_semantic": hypothesis_semantic,
         "gap_explanation": (
-            f"{gap_n} ticket(s) reached the status-only success bar (status==resolved or "
-            "correctly escalated) but failed the strict-lexical check -- their hypothesis text "
-            "did not literally contain every significant token of gold_root_cause (see "
-            "hypothesis_matches_gold's documented false-negative classes). This produces a "
-            f"{(status_rate - strict_rate) * 100:.1f}-point gap between the two measures "
-            f"({n_status_success}/{n_total} vs {n_strict_success}/{n_total})."
-            if n_total and status_rate is not None and strict_rate is not None
-            else "No tickets scored -- gap cannot be computed."
+            (
+                f"{gap_n} ticket(s) reached the status-only success bar (status==resolved or "
+                "correctly escalated) but failed the strict-lexical check -- their hypothesis text "
+                "did not literally contain every significant token of gold_root_cause (see "
+                "hypothesis_matches_gold's documented false-negative classes). This produces a "
+                f"{(status_rate - strict_rate) * 100:.1f}-point gap between the two measures "
+                f"({n_status_success}/{n_total} vs {n_strict_success}/{n_total})."
+                if n_total and status_rate is not None and strict_rate is not None
+                else "No tickets scored -- gap cannot be computed."
+            )
+            + semantic_note
         ),
     }
 
@@ -519,6 +752,10 @@ def build_report(
         "stale_gold_warnings": stale_warnings,
         "missing_gold_tickets": missing_gold,
         "per_ticket": per_ticket,
+        "judge_validation": judge_validation,
+        "judge_validation_v1": judge_validation_v1,
+        "hypothesis_semantic_v1_summary": (hypothesis_semantic_v1["summary"] if hypothesis_semantic_v1 else None),
+        "ragas_diagnostic": ragas_diagnostic,
     }
     return report
 
@@ -591,8 +828,76 @@ def render_markdown(report: dict) -> str:
     b = ts["task_success_strict_lexical"]
     lines.append(f"- task_success_status_only: {a['n_success']}/{a['n_total']} ({(a['rate'] or 0) * 100:.1f}%)")
     lines.append(f"- task_success_strict_lexical: {b['n_success']}/{b['n_total']} ({(b['rate'] or 0) * 100:.1f}%)")
-    lines.append(f"- hypothesis_semantic: {ts['hypothesis_semantic']}")
+
+    hs = ts["hypothesis_semantic"]
+    if isinstance(hs, dict) and "n_correct" in hs:
+        denom = hs["n_judged"] if hs["n_failed"] == 0 else f"{hs['n_judged']}/{hs['n_judged'] + hs['n_failed']}"
+        lines.append(
+            f"- hypothesis_semantic (headline): {hs['n_correct']}/{hs['n_judged']} ({hs['rate'] * 100:.1f}% "
+            f"over n_judged={denom}) -- rubric v{hs['rubric_version']}, repeats={hs['repeats']}"
+        )
+        if hs["n_failed"] > 0:
+            lines.append(f"  - n_failed (judge could not produce a verdict): {hs['n_failed']}")
+        fd = hs["failure_decomposition"]
+        lines.append(
+            f"  - failure decomposition: semantic_only={fd['semantic_only']} "
+            f"evidence_only={fd['evidence_only']} both={fd['both']}"
+        )
+        js = hs["judge_stability"]
+        lines.append(
+            f"  - judge stability across repeats: unanimous={js['n_unanimous']} split={js['n_split']}"
+        )
+    else:
+        reason = hs.get("reason", "unknown") if isinstance(hs, dict) else str(hs)
+        lines.append(f"- hypothesis_semantic (headline): NOT COMPUTED ({reason})")
+
     lines.append(f"- gap: {ts['gap_explanation']}")
+    lines.append("")
+
+    jv = report.get("judge_validation")
+    lines.append("## Judge Validation")
+    lines.append(
+        "The validation sample deliberately oversamples judge disagreement -- these figures "
+        "describe calibration on hard cases and must NOT be used to correct the headline rate above."
+    )
+    if isinstance(jv, dict) and "n_compared" in jv:
+        contingency = jv["contingency"]
+        lines.append(f"- n_compared: {jv['n_compared']} (n_skipped: {jv['n_skipped']})")
+        lines.append(
+            "- contingency (human x judge): "
+            f"both_true={contingency['both_true']} both_false={contingency['both_false']} "
+            f"human_true_judge_false={contingency['human_true_judge_false']} "
+            f"human_false_judge_true={contingency['human_false_judge_true']}"
+        )
+        lines.append(f"- raw_agreement: {jv['raw_agreement']:.1f}%")
+        lines.append(f"- kappa: {jv['kappa']:.3f}")
+        lines.append(f"- pabak: {jv['pabak']:.3f}")
+        lines.append(f"- prevalence: {jv['prevalence']:.3f}")
+        lines.append(f"- {jv['kappa_note']}")
+        lines.append("- source: eval/results/judge_agreement_report.json")
+    else:
+        reason = jv.get("reason", "unknown") if isinstance(jv, dict) else "judge_validation not available"
+        lines.append(f"- NOT COMPUTED ({reason})")
+    lines.append("")
+
+    lines.append("### Rubric history")
+    jv1 = report.get("judge_validation_v1")
+    hs_v1 = report.get("hypothesis_semantic_v1_summary")
+    if isinstance(jv1, dict) and "kappa" in jv1 and hs_v1 and isinstance(jv, dict) and "kappa" in jv:
+        lines.append(
+            "Rubric v1 was unspecified and produced kappa "
+            f"{jv1['kappa']:.3f} (chance-level) because the human rater and judge were answering "
+            "different questions (semantic match vs evidence grounding). Rubric v3 states a shared "
+            f"criterion and reaches kappa {jv['kappa']:.3f} / {jv['raw_agreement']:.1f}% raw agreement "
+            "(vs v1's raw agreement "
+            f"{jv1['raw_agreement']:.1f}%). This is the diagnostic that justified specifying the "
+            "rubric, not a discarded failure. Preserved evidence: "
+            "eval/results/hypothesis_semantic.v1.json, eval/results/judge_agreement_report.v1.json "
+            f"(v1 semantic_correct_rate was {hs_v1['semantic_correct_rate'] * 100:.1f}% -- do not cite "
+            "this number as current)."
+        )
+    else:
+        lines.append("- NOT COMPUTED (hypothesis_semantic.v1.json or judge_agreement_report.v1.json not found)")
     lines.append("")
 
     lines.append("## Category Breakdown")
@@ -695,6 +1000,105 @@ def render_markdown(report: dict) -> str:
         )
     lines.append("")
 
+    rd = report.get("ragas_diagnostic", {})
+    lines.append("## RAGAS Metrics — Diagnostic (NOT agent-quality claims)")
+    lines.append(
+        "All four RAGAS metrics measured in this project (context_precision, context_recall, "
+        "faithfulness, answer_relevancy) proved structurally unfit for this dataset. None of the "
+        "numbers below should be read as a measure of agent quality -- they are diagnostic evidence "
+        "of *why* each metric failed."
+    )
+    lines.append("")
+
+    lines.append("### (a) context_precision / context_recall — degenerate constant")
+    cd = rd.get("context_degeneracy", {})
+    if not cd or "status" in cd:
+        lines.append(f"- NOT COMPUTED ({cd.get('reason', 'not available')})")
+    else:
+        lines.append(
+            f"- context_precision: 1.0000 on {cd['context_precision_n']}/{cd['context_precision_n']} "
+            "readings (n=3 subset3, n=3 subset3_mw16, n=8 subset8)"
+            + (" -- constant across all readings" if cd["context_precision_all_ones"] else " -- NOT constant, check inputs")
+        )
+        lines.append(
+            f"- context_recall: 1.0000 on {cd['context_recall_n']}/{cd['context_recall_n']} readings "
+            "(subset8 only)"
+            + (" -- constant" if cd["context_recall_all_ones"] else " -- NOT constant, check inputs")
+        )
+        lines.append(f"- {cd['context_recall_note']}")
+        lines.append(
+            "- working explanation: state.citations records only doc_id, not section, so `contexts` is "
+            "always all 5 chunks of the cited runbook regardless of retrieval quality, plausibly "
+            "saturating both metrics at a trivial ceiling. Not re-run at full scale because the "
+            "degeneracy is already established."
+        )
+    lines.append("")
+
+    lines.append("### (b) faithfulness — confounded by answer mood")
+    fm = rd.get("faithfulness_mood", {})
+    if not fm or "status" in fm:
+        lines.append(f"- NOT COMPUTED ({fm.get('reason', 'not available')})")
+    else:
+        lines.append(
+            f"- overall faithfulness: {fm['overall_mean']:.3f} over {fm['overall_n']} tickets"
+        )
+        lines.append(
+            "- proposed_fix answers are written either as imperative plans or past-tense reports; "
+            "the 9 past-tense ones averaged 0.498 vs 0.747 for the 37 imperative ones, and both "
+            "0.000 scores (T020, T031) were past-tense."
+        )
+        lines.append(
+            "- a controlled experiment rewrote those 9 into imperative mood, preserving every fact, "
+            "number and threshold (verified before scoring), holding contexts identical: mean "
+            f"faithfulness rose from {fm['mean_before']:.3f} to {fm['mean_after']:.3f} "
+            f"(+{fm['mean_after'] - fm['mean_before']:.3f}). Normalised, those 9 score above the 37 "
+            "already-imperative tickets at 0.747 -- so they were never worse-grounded."
+        )
+        lines.append("")
+        lines.append("| ticket | before (gap46) | after (mood-normalized) |")
+        lines.append("|---|---|---|")
+        for p in fm["pairs"]:
+            before_str = "n/a" if p["before"] is None else f"{p['before']:.3f}"
+            after_str = "n/a" if p["after"] is None else f"{p['after']:.3f}"
+            lines.append(f"| {p['ticket_id']} | {before_str} | {after_str} |")
+        lines.append("")
+        lines.append(
+            "- conclusion: a metric that moves 0.35 on a content-preserving paraphrase is not "
+            "measuring grounding stably enough to report as a system-quality figure."
+        )
+    lines.append("")
+
+    lines.append("### (c) answer_relevancy — question/answer genre mismatch")
+    arg = rd.get("answer_relevancy_genre", {})
+    if not arg or "status" in arg:
+        lines.append(f"- NOT COMPUTED ({arg.get('reason', 'not available')})")
+    else:
+        lines.append(f"- overall answer_relevancy: {arg['overall_mean']:.3f} over {arg['overall_n']} tickets")
+        lines.append(
+            f"- does not discriminate against ground truth: mean {arg['mean_correct']:.3f} on "
+            f"judge-correct tickets (n={arg['n_correct']}) vs {arg['mean_incorrect']:.3f} on "
+            f"judge-incorrect (n={arg['n_incorrect']}), a "
+            f"{abs(arg['mean_correct'] - arg['mean_incorrect']):.3f} difference."
+        )
+        if arg["mood_shift"] is not None:
+            lines.append(
+                f"- the mood experiment moved answer_relevancy only {arg['mood_shift']:+.3f}, so mood "
+                "is not the cause."
+            )
+        lines.append(
+            "- working explanation: the metric reverse-generates questions from the answer and "
+            "compares them to the \"question\", but our question is ticket_text (a symptom narrative, "
+            "not a question) and our answer is a remediation plan -- different genres of text, so "
+            "similarity is low regardless of quality."
+        )
+    lines.append("")
+
+    lines.append(
+        "**Summary:** four of four metrics failed by three distinct mechanisms, which is itself a "
+        "finding about applying a QA-shaped eval framework to incident remediation."
+    )
+    lines.append("")
+
     return "\n".join(lines) + "\n"
 
 
@@ -715,6 +1119,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--raw-dir", type=str, default=str(DEFAULT_RAW_DIR))
     parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT_DIR))
+    parser.add_argument(
+        "--results-dir",
+        type=str,
+        default=str(DEFAULT_RESULTS_DIR),
+        help="Directory containing Session 9b artifacts (hypothesis_semantic_v3.json, "
+        "judge_agreement_report.json, ragas_scores_*.json). Defaults to eval/results.",
+    )
     parser.add_argument(
         "--with-corpus-recall",
         action="store_true",
@@ -741,6 +1152,7 @@ def main(argv: list[str] | None = None) -> int:
         safety=safety,
         with_corpus_recall=args.with_corpus_recall,
         rate_card_provider=base_url,
+        results_dir=Path(args.results_dir),
     )
 
     md_path = out_dir / "report.md"

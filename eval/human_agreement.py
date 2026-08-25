@@ -16,8 +16,15 @@ Two subcommands:
 Sampling note: the originally-planned second selection axis for the
 template sample was low ``context_precision``, but that metric is
 structurally degenerate on this data (constant at 1.0000 across 14
-readings), so it carries no selection signal. Only low-faithfulness
-oversampling (within a proportional category spread) is used.
+readings), so it carries no selection signal. Low-faithfulness
+oversampling (within a proportional category spread) was used initially,
+but measurement subsequently showed faithfulness does not predict the
+judge's verdict (and is mildly inverted): the ``faithfulness`` strategy
+is preserved and reachable via ``--strategy faithfulness`` for
+reproducibility, but the default is now ``disagreement``, which
+oversamples the judge's own uncertain/incorrect cases (verdict False,
+and non-unanimous repeats) instead. See the ``--strategy`` flag on the
+``template`` subcommand.
 """
 
 from __future__ import annotations
@@ -28,6 +35,17 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from eval.llm_judge import (
+    OBSERVATIONS_CHAR_CAP,
+    RUBRIC_TEXT,
+    RUBRIC_VERSION,
+    load_observations,
+    render_observations,
+)
+
 TICKETS_PATH = REPO_ROOT / "data" / "tickets.json"
 RAW_DIR = REPO_ROOT / "eval" / "results" / "raw"
 GAP_SET_PATH = REPO_ROOT / "eval" / "results" / "gap_set.json"
@@ -74,7 +92,7 @@ def _largest_remainder_allocation(counts: dict[str, int], n: int) -> dict[str, i
 
 
 def _load_gap_set(path: Path) -> list[dict]:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     return data["tickets"]
 
@@ -88,7 +106,7 @@ def _load_ragas_faithfulness(path: Path) -> dict[str, float]:
             "without faithfulness scores would silently change the "
             "documented methodology."
         )
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     scores = {}
     for row in data.get("per_ticket", []):
@@ -100,7 +118,7 @@ def _load_ragas_faithfulness(path: Path) -> dict[str, float]:
 
 
 def _load_tickets_index(path: Path) -> dict[str, dict]:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         tickets = json.load(f)
     return {t["id"]: t for t in tickets}
 
@@ -109,7 +127,7 @@ def _load_raw_hypothesis(ticket_id: str) -> str | None:
     raw_path = RAW_DIR / f"{ticket_id}.json"
     if not raw_path.exists():
         return None
-    with open(raw_path) as f:
+    with open(raw_path, encoding="utf-8") as f:
         raw = json.load(f)
     return raw.get("state", {}).get("hypothesis")
 
@@ -149,17 +167,140 @@ def select_sample(
     return selected
 
 
+def _load_judge_per_ticket(path: Path) -> list[dict]:
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Judge results file not found at {path}. The disagreement "
+            "sampling strategy requires the judge's per-ticket verdicts "
+            "(and agreement values) to know which tickets are "
+            "disagreement/uncertain cases — pass --judge pointing at "
+            "hypothesis_semantic.json, or run the semantic judge first."
+        )
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("per_ticket", [])
+
+
+def select_sample_disagreement(
+    gap_tickets: list[dict],
+    judge_rows: list[dict],
+    n: int,
+) -> tuple[list[dict], dict]:
+    """Select tickets weighted toward judge disagreement/uncertainty.
+
+    Mandatory set: all judge verdict==False tickets, plus all tickets with
+    agreement < 1.0 (deduplicated). Remaining slots up to n are filled with
+    verdict==True tickets, allocated proportionally by category using
+    largest-remainder rounding, ticket_id ascending for determinism.
+
+    Returns (selected_tickets, provenance_dict). If the mandatory set
+    exceeds n, all mandatory tickets are still included (never truncated)
+    and provenance notes the overage; the caller is responsible for
+    printing a warning.
+    """
+    by_id = {t["ticket_id"]: t for t in gap_tickets}
+
+    false_ids = [
+        r["ticket_id"] for r in judge_rows if r.get("verdict") is False
+    ]
+    nonunanimous_ids = [
+        r["ticket_id"]
+        for r in judge_rows
+        if r.get("agreement") is not None and r.get("agreement") < 1.0
+    ]
+
+    mandatory_ids = list(dict.fromkeys(false_ids + nonunanimous_ids))
+    mandatory_ids.sort()
+
+    true_ids = sorted(
+        r["ticket_id"] for r in judge_rows
+        if r.get("verdict") is True and r["ticket_id"] not in set(mandatory_ids)
+    )
+
+    n_mandatory = len(mandatory_ids)
+    n_exceeded = max(0, n_mandatory - n)
+    remaining = max(0, n - n_mandatory)
+
+    true_tickets = [by_id[tid] for tid in true_ids if tid in by_id]
+    by_category: dict[str, list[dict]] = {}
+    for t in true_tickets:
+        by_category.setdefault(t["category"], []).append(t)
+    counts = {cat: len(tickets) for cat, tickets in by_category.items()}
+    allocation = _largest_remainder_allocation(counts, min(remaining, sum(counts.values())))
+
+    filled_true: list[dict] = []
+    for cat, slots in allocation.items():
+        if slots <= 0:
+            continue
+        candidates = sorted(by_category.get(cat, []), key=lambda t: t["ticket_id"])
+        filled_true.extend(candidates[:slots])
+
+    filled_true.sort(key=lambda t: t["ticket_id"])
+
+    selected = [by_id[tid] for tid in mandatory_ids if tid in by_id] + filled_true
+    selected.sort(key=lambda t: t["ticket_id"])
+
+    category_counts: dict[str, int] = {}
+    for t in selected:
+        category_counts[t["category"]] = category_counts.get(t["category"], 0) + 1
+
+    provenance = {
+        "strategy": "disagreement",
+        "n_requested": n,
+        "n_selected": len(selected),
+        "n_mandatory_disagreement": n_mandatory,
+        "n_filled_true": len(filled_true),
+        "category_counts": category_counts,
+        "n_exceeded": n_exceeded,
+    }
+
+    return selected, provenance
+
+
 def build_template(
     gap_set_path: Path,
     ragas_path: Path,
     tickets_path: Path,
     n: int,
+    strategy: str = "faithfulness",
+    judge_path: Path | None = None,
 ) -> list[dict]:
+    """Build the blind labeling template. Defaults to the legacy
+    ``faithfulness`` strategy for backward compatibility with existing
+    callers/tests that omit ``strategy``; the CLI's own default is
+    ``disagreement`` (see ``main()``)."""
+    return build_template_with_provenance(
+        gap_set_path, ragas_path, tickets_path, n, strategy, judge_path
+    )[0]
+
+
+def build_template_with_provenance(
+    gap_set_path: Path,
+    ragas_path: Path,
+    tickets_path: Path,
+    n: int,
+    strategy: str = "faithfulness",
+    judge_path: Path | None = None,
+) -> tuple[list[dict], dict | None]:
     gap_tickets = _load_gap_set(gap_set_path)
-    faithfulness = _load_ragas_faithfulness(ragas_path)
     tickets_index = _load_tickets_index(tickets_path)
 
-    sample = select_sample(gap_tickets, faithfulness, n)
+    provenance = None
+
+    if strategy == "faithfulness":
+        faithfulness = _load_ragas_faithfulness(ragas_path)
+        sample = select_sample(gap_tickets, faithfulness, n)
+    elif strategy == "disagreement":
+        if judge_path is None:
+            judge_path = DEFAULT_JUDGE_PATH
+        judge_rows = _load_judge_per_ticket(Path(judge_path))
+        sample, provenance = select_sample_disagreement(gap_tickets, judge_rows, n)
+    elif strategy == "verdict-stratified":
+        raise NotImplementedError(
+            "verdict-stratified strategy is declared but not yet implemented"
+        )
+    else:
+        raise ValueError(f"unknown strategy: {strategy!r}")
 
     template = []
     for t in sample:
@@ -168,6 +309,17 @@ def build_template(
         hypothesis = t.get("hypothesis")
         if hypothesis is None:
             hypothesis = _load_raw_hypothesis(tid)
+
+        observations = load_observations(tid, RAW_DIR)
+        if observations is None:
+            observations_text = (
+                f"[no raw trajectory record found for ticket {tid} at "
+                f"{RAW_DIR / f'{tid}.json'} — evidence grounding (clause b) "
+                "cannot be assessed for this ticket]"
+            )
+        else:
+            observations_text, _truncated = render_observations(observations, OBSERVATIONS_CHAR_CAP)
+
         template.append(
             {
                 "ticket_id": tid,
@@ -175,24 +327,70 @@ def build_template(
                 "gold_root_cause": t.get("gold_root_cause"),
                 "hypothesis": hypothesis,
                 "ticket_text": ticket.get("ticket_text"),
+                "observations": observations_text,
                 "semantically_correct": None,
                 "notes": "",
             }
         )
-    return template
+    return template, provenance
 
 
 def run_template(args: argparse.Namespace) -> None:
-    template = build_template(
+    template, provenance = build_template_with_provenance(
         gap_set_path=Path(args.gap_set),
         ragas_path=Path(args.ragas),
         tickets_path=Path(args.tickets),
         n=args.n,
+        strategy=args.strategy,
+        judge_path=Path(args.judge) if args.judge else None,
     )
+
+    out = {
+        "n": len(template),
+        "rubric": {
+            "version": RUBRIC_VERSION,
+            "text": RUBRIC_TEXT,
+        },
+        "tickets": template,
+    }
+    out["INSTRUCTIONS"] = (
+        "Judge whether the hypothesis satisfies BOTH clauses of the rubric "
+        "above: clause (a) semantic match — the hypothesis identifies a "
+        "root-cause condition consistent with the gold root cause's "
+        "causal chain (a more specific instance of the gold mechanism "
+        "still counts; a different, non-overlapping mechanism does not) "
+        "— AND clause (b) evidence grounding — the hypothesis is "
+        "supported by evidence the agent actually observed in its tool "
+        "outputs during its run, not merely asserted without observed "
+        "support. Use the 'observations' field on each ticket (the "
+        "agent's own recorded tool outputs for that run) to judge clause "
+        "(b) — do not assume the hypothesis is grounded just because it "
+        "sounds plausible. Mark semantically_correct True only if BOTH "
+        "clauses hold; False if either clause fails."
+    )
+
+    if provenance is not None:
+        n_exceeded = provenance.pop("n_exceeded", 0)
+        if n_exceeded > 0:
+            print(
+                f"WARNING: mandatory disagreement set ({provenance['n_mandatory_disagreement']}) "
+                f"exceeds --n ({provenance['n_requested']}) by {n_exceeded}. "
+                "All disagreement tickets are included anyway; nothing was dropped."
+            )
+        out["sampling"] = provenance
+        out["WARNING"] = (
+            "This sample is deliberately NOT representative of the 46-ticket "
+            "gap set. It oversamples judge disagreement/uncertainty (verdict "
+            "False and non-unanimous repeats), so the resulting human/judge "
+            "agreement statistics describe judge calibration on hard cases "
+            "and must NOT be used to correct or re-estimate the overall "
+            "semantic-correct rate across the gap set."
+        )
+
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"n": len(template), "tickets": template}, f, indent=2)
+        json.dump(out, f, indent=2)
     print(f"Wrote {len(template)} tickets to {out_path}")
 
 
@@ -202,7 +400,7 @@ def run_template(args: argparse.Namespace) -> None:
 
 
 def _load_human_labels(path: Path) -> dict[str, bool | None]:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     labels = {}
     for row in data.get("tickets", []):
@@ -210,13 +408,25 @@ def _load_human_labels(path: Path) -> dict[str, bool | None]:
     return labels
 
 
+def _load_human_rubric_version(path: Path) -> int | None:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("rubric", {}).get("version")
+
+
 def _load_judge_labels(path: Path) -> dict[str, bool | None]:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     labels = {}
     for row in data.get("per_ticket", []):
         labels[row["ticket_id"]] = row.get("verdict")
     return labels
+
+
+def _load_judge_rubric_version(path: Path) -> int | None:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("config", {}).get("rubric_version")
 
 
 def cohens_kappa(pairs: list[tuple[bool, bool]]) -> tuple[float | None, float, str]:
@@ -284,6 +494,26 @@ def run_compare(args: argparse.Namespace) -> None:
 
     human_labels = _load_human_labels(human_path)
     judge_labels = _load_judge_labels(judge_path)
+
+    human_rubric_version = _load_human_rubric_version(human_path)
+    judge_rubric_version = _load_judge_rubric_version(judge_path)
+
+    rubric_warning = None
+    if human_rubric_version is None or judge_rubric_version is None:
+        rubric_warning = (
+            "one or both files lack a rubric_version (human="
+            f"{human_rubric_version!r}, judge={judge_rubric_version!r}). "
+            "This comparison spans rubric versions and is NOT interpretable."
+        )
+        print(f"WARNING: {rubric_warning}")
+    elif human_rubric_version != judge_rubric_version:
+        raise ValueError(
+            "rubric version mismatch: human file has rubric_version="
+            f"{human_rubric_version!r}, judge file has rubric_version="
+            f"{judge_rubric_version!r}. Comparing labels made under "
+            "different rubrics is invalid — this is exactly what produced "
+            "the chance-level kappa in the v1 run."
+        )
 
     all_ids = sorted(set(human_labels) | set(judge_labels))
 
@@ -382,6 +612,11 @@ def run_compare(args: argparse.Namespace) -> None:
     )
 
     report = {
+        "rubric_versions": {
+            "human": human_rubric_version,
+            "judge": judge_rubric_version,
+        },
+        "rubric_warning": rubric_warning,
         "n_compared": n_compared,
         "n_skipped": n_skipped,
         "contingency": contingency,
@@ -430,6 +665,12 @@ def main(argv: list[str] | None = None) -> None:
     template_parser.add_argument("--gap-set", default=str(GAP_SET_PATH))
     template_parser.add_argument("--tickets", default=str(TICKETS_PATH))
     template_parser.add_argument("--out", default=str(DEFAULT_TEMPLATE_OUT))
+    template_parser.add_argument(
+        "--strategy",
+        choices=["disagreement", "faithfulness", "verdict-stratified"],
+        default="disagreement",
+    )
+    template_parser.add_argument("--judge", default=str(DEFAULT_JUDGE_PATH))
     template_parser.set_defaults(func=run_template)
 
     compare_parser = subparsers.add_parser(

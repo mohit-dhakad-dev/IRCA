@@ -34,8 +34,24 @@
       "n_total": 63,
       "rate": 0.20634920634920634
     },
-    "hypothesis_semantic": "PENDING (Session 9b)",
-    "gap_explanation": "46 ticket(s) reached the status-only success bar (status==resolved or correctly escalated) but failed the strict-lexical check -- their hypothesis text did not literally contain every significant token of gold_root_cause (see hypothesis_matches_gold's documented false-negative classes). This produces a 73.0-point gap between the two measures (59/63 vs 13/63)."
+    "hypothesis_semantic": {
+      "n_correct": 41,
+      "n_judged": 46,
+      "n_failed": 0,
+      "rate": 0.8913043478260869,
+      "rubric_version": 3,
+      "repeats": 3,
+      "failure_decomposition": {
+        "semantic_only": 1,
+        "evidence_only": 3,
+        "both": 1
+      },
+      "judge_stability": {
+        "n_unanimous": 39,
+        "n_split": 7
+      }
+    },
+    "gap_explanation": "46 ticket(s) reached the status-only success bar (status==resolved or correctly escalated) but failed the strict-lexical check -- their hypothesis text did not literally contain every significant token of gold_root_cause (see hypothesis_matches_gold's documented false-negative classes). This produces a 73.0-point gap between the two measures (59/63 vs 13/63). Of the 46, 41 were judged semantically correct under rubric v3."
   },
   "category_breakdown": {
     "easy": {
@@ -2155,5 +2171,779 @@
         "estimated_cost_usd": 0.00935925
       }
     }
-  ]
+  ],
+  "judge_validation": {
+    "rubric_versions": {
+      "human": 3,
+      "judge": 3
+    },
+    "rubric_warning": null,
+    "n_compared": 25,
+    "n_skipped": {
+      "human_unlabeled": 0,
+      "judge_failed": 0,
+      "not_in_both": 21
+    },
+    "contingency": {
+      "both_true": 18,
+      "both_false": 3,
+      "human_true_judge_false": 2,
+      "human_false_judge_true": 2
+    },
+    "raw_agreement": 84.0,
+    "kappa": 0.49999999999999967,
+    "pabak": 0.6799999999999999,
+    "prevalence": 0.8,
+    "kappa_note": "kappa=0.500, PABAK=0.680, prevalence=0.800. PABAK equals 2*p_o - 1 and does not depend on the raters' marginal label distributions; kappa is chance-corrected against those marginals and can diverge from PABAK when prevalence is far from 0.5.",
+    "per_ticket": [
+      {
+        "ticket_id": "T001",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T002",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T003",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T004",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T006",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T007",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T008",
+        "human": false,
+        "judge": false,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T009",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T010",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T011",
+        "human": false,
+        "judge": false,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T012",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T013",
+        "human": false,
+        "judge": false,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T016",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T017",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T018",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T020",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T021",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T022",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T023",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T024",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T026",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T027",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T028",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T030",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T031",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T032",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T033",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T034",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T035",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T037",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T038",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T040",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T041",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T042",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T043",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T044",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T045",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T046",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T047",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T049",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T050",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T051",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T052",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T053",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T054",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T055",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      }
+    ]
+  },
+  "judge_validation_v1": {
+    "n_compared": 25,
+    "n_skipped": {
+      "human_unlabeled": 0,
+      "judge_failed": 0,
+      "not_in_both": 21
+    },
+    "contingency": {
+      "both_true": 14,
+      "both_false": 2,
+      "human_true_judge_false": 5,
+      "human_false_judge_true": 4
+    },
+    "raw_agreement": 64.0,
+    "kappa": 0.06639004149377584,
+    "pabak": 0.28,
+    "prevalence": 0.76,
+    "kappa_note": "kappa=0.066, PABAK=0.280, prevalence=0.760. PABAK equals 2*p_o - 1 and does not depend on the raters' marginal label distributions; kappa is chance-corrected against those marginals and can diverge from PABAK when prevalence is far from 0.5.",
+    "per_ticket": [
+      {
+        "ticket_id": "T001",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T002",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T003",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T004",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T006",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T007",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T008",
+        "human": false,
+        "judge": false,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T009",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T010",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T011",
+        "human": false,
+        "judge": false,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T012",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T013",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T016",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T017",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T018",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T020",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T021",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T022",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T023",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T024",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T026",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T027",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T028",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T030",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T031",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T032",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T033",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T034",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T035",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T037",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T038",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T040",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T041",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T042",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T043",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T044",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T045",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T046",
+        "human": true,
+        "judge": false,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T047",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T049",
+        "human": true,
+        "judge": true,
+        "compared": true,
+        "agree": true
+      },
+      {
+        "ticket_id": "T050",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T051",
+        "human": false,
+        "judge": true,
+        "compared": true,
+        "agree": false
+      },
+      {
+        "ticket_id": "T052",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T053",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T054",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      },
+      {
+        "ticket_id": "T055",
+        "human": null,
+        "judge": true,
+        "compared": false,
+        "skip_reason": "not_in_both"
+      }
+    ]
+  },
+  "hypothesis_semantic_v1_summary": {
+    "n_judged": 46,
+    "n_correct": 39,
+    "n_incorrect": 7,
+    "n_failed": 0,
+    "semantic_correct_rate": 0.8478260869565217
+  },
+  "ragas_diagnostic": {
+    "context_degeneracy": {
+      "context_precision_all_ones": true,
+      "context_precision_n": 14,
+      "context_recall_all_ones": true,
+      "context_recall_n": 8,
+      "context_recall_note": "subset3 and subset3_mw16 returned NaN for context_recall (metric-key bug -- they scored llm_context_recall, which came back None/NaN) so they are NOT evidence of degeneracy; only subset8's 8 readings are."
+    },
+    "faithfulness_mood": {
+      "overall_mean": 0.6982911412259238,
+      "overall_n": 46,
+      "pairs": [
+        {
+          "ticket_id": "T010",
+          "before": 0.8571428571428571,
+          "after": 1.0
+        },
+        {
+          "ticket_id": "T018",
+          "before": 0.4,
+          "after": 0.8
+        },
+        {
+          "ticket_id": "T020",
+          "before": 0.0,
+          "after": 0.8333333333333334
+        },
+        {
+          "ticket_id": "T023",
+          "before": 0.6,
+          "after": 0.8
+        },
+        {
+          "ticket_id": "T030",
+          "before": 0.8888888888888888,
+          "after": 1.0
+        },
+        {
+          "ticket_id": "T031",
+          "before": 0.0,
+          "after": 0.8181818181818182
+        },
+        {
+          "ticket_id": "T034",
+          "before": 0.4,
+          "after": 0.7777777777777778
+        },
+        {
+          "ticket_id": "T036",
+          "before": null,
+          "after": 1.0
+        },
+        {
+          "ticket_id": "T043",
+          "before": 0.3333333333333333,
+          "after": 0.625
+        },
+        {
+          "ticket_id": "T045",
+          "before": 1.0,
+          "after": 1.0
+        }
+      ],
+      "mean_before": 0.49770723104056436,
+      "mean_after": 0.8504769921436588
+    },
+    "answer_relevancy_genre": {
+      "overall_mean": 0.47229907376456043,
+      "overall_n": 46,
+      "mean_correct": 0.47308489659222475,
+      "n_correct": 41,
+      "mean_incorrect": 0.4658553265777131,
+      "n_incorrect": 5,
+      "mood_shift": -0.01948194918804469
+    }
+  }
 }

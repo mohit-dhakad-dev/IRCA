@@ -21,3 +21,9 @@ venv-ragas/
 # local SSH keys -- never commit
 key
 key.pub
+.judge-*.log
+.mood.log
+
+# transient RAGAS resume checkpoints
+eval/results/.ragas_checkpoint_*.jsonl
+eval/results/.ckpt_*.jsonl
