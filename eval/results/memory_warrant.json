@@ -1,0 +1,639 @@
+{
+  "schema_version": 1,
+  "threshold": 0.4,
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "n_past_incidents": 8,
+  "n_tickets": 63,
+  "tickets": [
+    {
+      "id": "T001",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.4824,
+      "classification": "warranted"
+    },
+    {
+      "id": "T002",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.3244,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T003",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.4944,
+      "classification": "warranted"
+    },
+    {
+      "id": "T004",
+      "category": "easy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.5356,
+      "classification": "warranted"
+    },
+    {
+      "id": "T005",
+      "category": "easy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5693,
+      "classification": "warranted"
+    },
+    {
+      "id": "T006",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5719,
+      "classification": "warranted"
+    },
+    {
+      "id": "T007",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.3816,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T008",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5981,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T009",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.5939,
+      "classification": "warranted"
+    },
+    {
+      "id": "T010",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5981,
+      "classification": "warranted"
+    },
+    {
+      "id": "T011",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.611,
+      "classification": "warranted"
+    },
+    {
+      "id": "T012",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.5874,
+      "classification": "warranted"
+    },
+    {
+      "id": "T013",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.617,
+      "classification": "warranted"
+    },
+    {
+      "id": "T014",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5319,
+      "classification": "hazard"
+    },
+    {
+      "id": "T015",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5181,
+      "classification": "hazard"
+    },
+    {
+      "id": "T016",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5102,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T017",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "ok",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.4085,
+      "classification": "warranted"
+    },
+    {
+      "id": "T018",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.6323,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T019",
+      "category": "easy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.6171,
+      "classification": "warranted"
+    },
+    {
+      "id": "T020",
+      "category": "easy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5617,
+      "classification": "warranted"
+    },
+    {
+      "id": "T021",
+      "category": "easy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.6234,
+      "classification": "warranted"
+    },
+    {
+      "id": "T022",
+      "category": "easy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.6086,
+      "classification": "warranted"
+    },
+    {
+      "id": "T023",
+      "category": "easy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "ok",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.5277,
+      "classification": "warranted"
+    },
+    {
+      "id": "T024",
+      "category": "easy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.3798,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T025",
+      "category": "easy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.5808,
+      "classification": "warranted"
+    },
+    {
+      "id": "T026",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5326,
+      "classification": "warranted"
+    },
+    {
+      "id": "T027",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "ok",
+      "top_incident_id": "INC-008",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.402,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T028",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.4567,
+      "classification": "warranted"
+    },
+    {
+      "id": "T029",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.6186,
+      "classification": "warranted"
+    },
+    {
+      "id": "T030",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.4591,
+      "classification": "warranted"
+    },
+    {
+      "id": "T031",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.4782,
+      "classification": "warranted"
+    },
+    {
+      "id": "T032",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.5906,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T033",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.3665,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T034",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.5566,
+      "classification": "warranted"
+    },
+    {
+      "id": "T035",
+      "category": "multi_step",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.4788,
+      "classification": "warranted"
+    },
+    {
+      "id": "T036",
+      "category": "multi_step",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.4788,
+      "classification": "warranted"
+    },
+    {
+      "id": "T037",
+      "category": "multi_step",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.5062,
+      "classification": "warranted"
+    },
+    {
+      "id": "T038",
+      "category": "multi_step",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5807,
+      "classification": "warranted"
+    },
+    {
+      "id": "T039",
+      "category": "multi_step",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.2794,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T040",
+      "category": "multi_step",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.4377,
+      "classification": "warranted"
+    },
+    {
+      "id": "T041",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.551,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T042",
+      "category": "tool_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "ok",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.476,
+      "classification": "warranted"
+    },
+    {
+      "id": "T043",
+      "category": "tool_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-007",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.4633,
+      "classification": "warranted"
+    },
+    {
+      "id": "T044",
+      "category": "tool_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.4543,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T045",
+      "category": "tool_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.5053,
+      "classification": "warranted"
+    },
+    {
+      "id": "T046",
+      "category": "tool_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.6501,
+      "classification": "warranted"
+    },
+    {
+      "id": "T047",
+      "category": "tool_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-008",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.6205,
+      "classification": "warranted"
+    },
+    {
+      "id": "T048",
+      "category": "rag_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-008",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5025,
+      "classification": "warranted"
+    },
+    {
+      "id": "T049",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-008",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.385,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T050",
+      "category": "rag_heavy",
+      "gold_root_cause": "network_ingress_queue_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.4505,
+      "classification": "warranted"
+    },
+    {
+      "id": "T051",
+      "category": "rag_heavy",
+      "gold_root_cause": "deploy_healthcheck_misconfiguration",
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.4441,
+      "classification": "warranted"
+    },
+    {
+      "id": "T052",
+      "category": "rag_heavy",
+      "gold_root_cause": "auth_signing_key_mismatch",
+      "memory_status": "ok",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.6053,
+      "classification": "warranted"
+    },
+    {
+      "id": "T053",
+      "category": "rag_heavy",
+      "gold_root_cause": "disk_log_rotation_gap",
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.6287,
+      "classification": "warranted"
+    },
+    {
+      "id": "T054",
+      "category": "rag_heavy",
+      "gold_root_cause": "db_connection_pool_exhaustion",
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5049,
+      "classification": "warranted"
+    },
+    {
+      "id": "T055",
+      "category": "rag_heavy",
+      "gold_root_cause": "memory_cache_overgrowth",
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.227,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T056",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-002",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.6436,
+      "classification": "hazard"
+    },
+    {
+      "id": "T057",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.419,
+      "classification": "hazard"
+    },
+    {
+      "id": "T058",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-006",
+      "top_resolved_root_cause": "network_ingress_queue_exhaustion",
+      "top_score": 0.3846,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T059",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-003",
+      "top_resolved_root_cause": "deploy_healthcheck_misconfiguration",
+      "top_score": 0.4742,
+      "classification": "hazard"
+    },
+    {
+      "id": "T060",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "no_confident_match",
+      "top_incident_id": "INC-001",
+      "top_resolved_root_cause": "auth_signing_key_mismatch",
+      "top_score": 0.3944,
+      "classification": "no_signal"
+    },
+    {
+      "id": "T061",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-004",
+      "top_resolved_root_cause": "disk_log_rotation_gap",
+      "top_score": 0.4186,
+      "classification": "hazard"
+    },
+    {
+      "id": "T062",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-008",
+      "top_resolved_root_cause": "db_connection_pool_exhaustion",
+      "top_score": 0.5051,
+      "classification": "hazard"
+    },
+    {
+      "id": "T063",
+      "category": "ambiguous",
+      "gold_root_cause": null,
+      "memory_status": "ok",
+      "top_incident_id": "INC-005",
+      "top_resolved_root_cause": "memory_cache_overgrowth",
+      "top_score": 0.5219,
+      "classification": "hazard"
+    }
+  ]
+}

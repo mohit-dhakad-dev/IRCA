@@ -9,7 +9,11 @@ chroma_db/
 # regenerable -- ignore them, but report.md/report.json (written by Part B)
 # are the committed history of eval results over the project's life, so
 # explicitly un-ignore those two even though they live under eval/results/.
-# eval/results/adversarial/*.json is the same class of artifact: raw
+# eval/results/adversarial/*.json
+# Paired A/B trigger-experiment output -- same class as the raw sweep output
+# above: bulky, regenerable, and currently PARTIAL (interrupted mid-run).
+eval/results/variance_triggers/
+ is the same class of artifact: raw
 # per-ticket adversarial sweep output, regenerable by re-running the
 # adversarial sweep. Its verdict and undelivered evidence are already
 # preserved in the committed report.json/report.md, so the raw per-ticket

@@ -152,6 +152,16 @@ def test_loop_guard_skips_repeated_tool_call(monkeypatch):
         return {"status": "ok", "data": {}, "summary": "logs"}
 
     monkeypatch.setitem(tool_executor_module.TOOL_REGISTRY, "query_logs", spy_query_logs)
+    # The loop guard fires twice here (rounds 2 and 3 both skip), which is
+    # exactly the "stuck state fires a second time" case that
+    # agent/orchestrator.py's memory-consultation triggers (see
+    # tests/test_memory_triggers.py) respond to with a deterministic
+    # search_past_incidents call -- stub it so this stays offline.
+    monkeypatch.setitem(
+        tool_executor_module.TOOL_REGISTRY,
+        "search_past_incidents",
+        lambda **kwargs: {"status": "no_confident_match", "data": {}, "summary": "none"},
+    )
 
     args = {"service": "checkout", "window": "2h", "level": "ERROR"}
     repeated_call = lambda cid: _tool_call(cid, "query_logs", args)
@@ -174,7 +184,9 @@ def test_loop_guard_skips_repeated_tool_call(monkeypatch):
     ]
     assert len(skipped_entries) == 2
     assert "already tried" in skipped_entries[0]["observation"]["summary"].lower()
-    assert state.iteration == 3
+    # 3 model rounds plus the one deterministic memory-consultation round the
+    # second loop-guard skip triggers (see comment above).
+    assert state.iteration == 4
     assert state.status == "escalated"
 
 

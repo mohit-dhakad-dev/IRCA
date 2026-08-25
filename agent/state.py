@@ -40,3 +40,12 @@ class TaskState(BaseModel):
     # write gate (Session 7 spec): tracks the PendingAction, if any, queued by
     # _queue_write_action for human approval. None until a write is queued.
     pending_action_id: str | None = None
+
+    # memory-consultation triggers (see agent/orchestrator.py
+    # _maybe_trigger_memory): at most one nudge and one deterministic
+    # search_past_incidents call per run. Whether memory has actually been
+    # CONSULTED is deliberately NOT a third flag here -- it is derived from
+    # state.trajectory (see _memory_consulted) so it can never drift out of
+    # sync with what the run actually did.
+    memory_nudge_issued: bool = False
+    memory_autoconsulted: bool = False

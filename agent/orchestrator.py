@@ -5,12 +5,23 @@ docs/design.md "Agentic Loop — Stop Conditions (Session 5 spec)" fire.
 Unlike agent/single_pass.py (a fixed one-round baseline), this module
 iterates, tracks a repeated-call loop guard, and runs a critic pass every
 round to decide whether the current hypothesis is sufficiently supported.
+
+Provenance: every trajectory entry with a non-None "tool_call" carries an
+"initiated_by" key, either "model" (the agent chose to call it) or "loop"
+(the orchestrator called it deterministically -- the memory-consultation
+fallback in _maybe_trigger_memory, or the terminal update_ticket write in
+_queue_write_action). Eval code computing invocation-recall-style metrics
+(e.g. memory_invocation_recall) MUST report model-initiated and
+loop-initiated invocations separately -- collapsing them measures this
+module's own intervention, not agent behaviour.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
+from types import SimpleNamespace
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -659,6 +670,7 @@ def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
                             "proposed_fix": _UNUSABLE_COMPOSE_PLACEHOLDER,
                             "citation_doc_id": citation_doc_id,
                         },
+                        "initiated_by": "loop",
                     },
                     "observation": {
                         "status": "error",
@@ -688,6 +700,7 @@ def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
                         "proposed_fix": proposed_fix,
                         "citation_doc_id": citation_doc_id,
                     },
+                    "initiated_by": "loop",
                 },
                 "observation": result,
                 "hypothesis_after": state.hypothesis,
@@ -723,6 +736,179 @@ def _queue_write_action(state: TaskState, messages: list[dict]) -> None:
             "hypothesis_after": state.hypothesis,
         }
     )
+
+
+# Shown once per run, the first time a stuck-state trigger fires and memory
+# has not been consulted yet (see _maybe_trigger_memory). Deliberately does
+# NOT claim a prior incident exists -- it only names the tool as an available
+# next action.
+MEMORY_NUDGE_TEXT = (
+    "You appear stuck (a repeated call was skipped, or you replied without "
+    "gathering more evidence). search_past_incidents is available and has "
+    "not been called yet this run -- a similar prior incident MAY exist "
+    "(this is not a claim that one does); consider checking before "
+    "continuing."
+)
+
+
+def _memory_consulted(state: TaskState) -> bool:
+    """Whether search_past_incidents has been called this run, by the model
+    or by the loop's own deterministic fallback.
+
+    Derived from state.trajectory rather than a dedicated flag, so this can
+    never drift out of sync with what the run actually did (e.g. if the
+    deterministic-call bookkeeping below were ever changed without updating
+    a separate flag in lockstep).
+    """
+    for entry in state.trajectory:
+        tool_call = entry.get("tool_call")
+        if tool_call is not None and tool_call.get("name") == "search_past_incidents":
+            return True
+    return False
+
+
+def _run_deterministic_memory_call(state: TaskState, messages: list[dict]) -> None:
+    """The escalation step of _maybe_trigger_memory: call search_past_incidents
+    on the run's behalf, through the SAME executor path (execute_tool_call)
+    used for every model-initiated call, so the ticket_id-injection defense
+    and argument scoping in agent/tool_executor.py still apply.
+
+    execute_tool_call expects an object shaped like an OpenAI tool_call
+    (``.function.name`` / ``.function.arguments`` / ``.id``); since this call
+    is loop-initiated rather than something the model returned, we construct
+    that shape explicitly with SimpleNamespace instead of importing
+    memory.store directly.
+
+    The query is derived purely from behavioural run state (the current
+    hypothesis if one has been formed, else the ticket's own description) --
+    never from a ticket's gold fields (docs/decisions.md H7).
+
+    Injected into the conversation as a user-role message (not a "tool"-role
+    message) because there is no preceding assistant tool_calls turn for a
+    provider to reconcile a tool-role reply against -- this call never went
+    through the model's own tool-choice turn.
+
+    Recorded in state.trajectory with tool_call["initiated_by"] = "loop" so
+    eval code can separate model-initiated from loop-initiated invocations
+    (see the module-level provenance note above run_agent_loop) and so this
+    never inflates memory_invocation_recall, which measures the model's own
+    behaviour.
+
+    Costs exactly one extra iteration (state.iteration += 1 below), mirroring
+    every other round in this loop -- the caller (_maybe_trigger_memory) is
+    only ever invoked once per run for this branch (guarded by
+    state.memory_autoconsulted), so this can add at most one iteration to a
+    run's total. Control returns to the top of run_agent_loop's while loop
+    immediately afterward, where the normal max_iterations/no_new_info stop
+    checks run unchanged -- so this step cannot itself push a run past its
+    iteration budget without the normal escalation path still firing.
+    """
+    query = state.hypothesis or state.description
+    args = {"query": query}
+    tool_call = SimpleNamespace(
+        id="loop-initiated-search_past_incidents",
+        function=SimpleNamespace(
+            name="search_past_incidents", arguments=json.dumps(args)
+        ),
+    )
+
+    record = execute_tool_call(tool_call, state.ticket_id)
+    observation = record["result"]
+
+    signature = ("search_past_incidents", json.dumps(args, sort_keys=True))
+    state.called_tool_signatures.add(signature)
+
+    messages.append(
+        {
+            "role": "user",
+            "content": (
+                "The system automatically checked memory for a similar past "
+                "incident because the run appeared stuck; this was not a "
+                "call you made yourself. "
+                + _format_observation(
+                    state.iteration, "search_past_incidents", args, observation
+                )
+            ),
+        }
+    )
+
+    state.trajectory.append(
+        {
+            "iteration": state.iteration,
+            "thought": "",
+            "tool_call": {
+                "name": "search_past_incidents",
+                "arguments": args,
+                "initiated_by": "loop",
+            },
+            "observation": observation,
+            "hypothesis_after": state.hypothesis,
+        }
+    )
+
+    state.iteration += 1
+
+
+# Environment variable controlling the memory-consultation triggers below.
+# Default is ENABLED -- absent, empty, or any value other than one of the
+# recognised "off" strings means on. This switch exists ONLY for controlled
+# A/B evaluation (see eval/variance_triggers.py); it is not a feature flag
+# meant to be left off in normal operation.
+_MEMORY_TRIGGERS_ENV_VAR = "IRCA_MEMORY_TRIGGERS"
+_MEMORY_TRIGGERS_OFF_VALUES = {"0", "false", "no"}
+
+
+def _memory_triggers_enabled() -> bool:
+    """Read IRCA_MEMORY_TRIGGERS fresh from the environment on every call
+    (never cached at import time), so a test or eval harness can
+    monkeypatch os.environ per-run without reimporting this module."""
+    raw = os.environ.get(_MEMORY_TRIGGERS_ENV_VAR)
+    if raw is None:
+        return True
+    return raw.strip().lower() not in _MEMORY_TRIGGERS_OFF_VALUES
+
+
+def _maybe_trigger_memory(state: TaskState, messages: list[dict], triggered: bool) -> None:
+    """Escalating, at-most-once-each response to a stuck state.
+
+    ``triggered`` is True when either of the two stuck-state triggers fired
+    THIS round:
+      Trigger A -- the loop guard skipped a repeated call signature.
+      Trigger B -- the model returned no tool calls while _can_resolve(state)
+                   is False (punting/asking rather than investigating; a
+                   no-tool-call round where _can_resolve is already True is a
+                   normal resolve, not a punt, and must not trigger).
+
+    If memory has already been consulted this run (by the model or by an
+    earlier deterministic call), this is a no-op regardless of ``triggered``
+    -- an empty or already-satisfied memory need must never re-fire.
+
+    Otherwise: the FIRST time this fires this run, append a nudge (naming
+    search_past_incidents, not claiming a match exists) to the conversation
+    -- this rides along with a message the loop is already appending this
+    round, so it costs no extra iteration. The NEXT time this fires (memory
+    STILL unconsulted), make the deterministic call once via
+    _run_deterministic_memory_call, which costs exactly one iteration.
+
+    Must be called AFTER this round's trajectory entries have already been
+    appended, so _memory_consulted sees a model-initiated call from THIS
+    round (not just prior rounds) before deciding whether to escalate.
+
+    If IRCA_MEMORY_TRIGGERS is disabled (see _memory_triggers_enabled),
+    returns immediately: no nudge, no deterministic call, and neither
+    state.memory_nudge_issued nor state.memory_autoconsulted is mutated.
+    """
+    if not _memory_triggers_enabled():
+        return
+    if not triggered or _memory_consulted(state):
+        return
+    if not state.memory_nudge_issued:
+        messages.append({"role": "user", "content": MEMORY_NUDGE_TEXT})
+        state.memory_nudge_issued = True
+        return
+    if not state.memory_autoconsulted:
+        _run_deterministic_memory_call(state, messages)
+        state.memory_autoconsulted = True
 
 
 def run_agent_loop(ticket_id: str) -> TaskState:
@@ -924,6 +1110,9 @@ def run_agent_loop(ticket_id: str) -> TaskState:
             no_new_info = 0 if any_new_ok else no_new_info + 1
 
             thought = message.content or ""
+            loop_guard_fired = any(
+                entry["status"] == "skipped" for entry in round_entries
+            )
             for entry in round_entries:
                 state.trajectory.append(
                     {
@@ -932,6 +1121,7 @@ def run_agent_loop(ticket_id: str) -> TaskState:
                         "tool_call": {
                             "name": entry["tool_name"],
                             "arguments": entry["tool_args"],
+                            "initiated_by": "model",
                         },
                         "observation": entry["observation"],
                         "hypothesis_after": state.hypothesis,
@@ -952,6 +1142,13 @@ def run_agent_loop(ticket_id: str) -> TaskState:
             )
 
             state.iteration += 1
+
+            # Trigger A: the loop guard skipped a repeated call signature
+            # this round. See _maybe_trigger_memory for the escalation
+            # policy; this must run AFTER the trajectory appends above so
+            # _memory_consulted sees any model-initiated search_past_incidents
+            # call from this very round.
+            _maybe_trigger_memory(state, messages, loop_guard_fired)
 
         else:
             # Step 3b — the model returned text with no tool call.
@@ -1009,5 +1206,12 @@ def run_agent_loop(ticket_id: str) -> TaskState:
             )
 
             state.iteration += 1
+
+            # Trigger B: the model punted (no tool call) while the evidence
+            # bar was not yet met -- `resolves` was computed above from the
+            # same _can_resolve(state) check. A no-tool-call round where
+            # resolves is True is a normal resolve, not a punt, and must not
+            # trigger (see _maybe_trigger_memory docstring).
+            _maybe_trigger_memory(state, messages, not resolves)
 
     return state
